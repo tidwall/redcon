@@ -5,6 +5,15 @@ Supports pipelining and telnet commands.
 
 There is only one function `ListenAndServe`, and one type `Conn`.
 
+Installing
+----------
+
+```
+go get github.com/tidwall/redcon
+```
+
+Example
+-------
 Here's a full example of a Redis clone that accepts:
 
 - SET key value
