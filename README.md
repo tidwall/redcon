@@ -1,4 +1,4 @@
-Redcon [GoDoc](https://godoc.org/github.com/tidwall/redcon?status.svg)](https://godoc.org/github.com/tidwall/redcon)
+Redcon [![GoDoc](https://godoc.org/github.com/tidwall/redcon?status.svg)](https://godoc.org/github.com/tidwall/redcon)
 ======
 Super fast Redis RESP server implementation.
 Supports pipelining and telnet commands.
