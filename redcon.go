@@ -82,7 +82,9 @@ func ListenAndServe(
 						return err
 					}
 					if len(cmds) > 0 {
-						handler(wrc, cmds)
+						if handler != nil {
+							handler(wrc, cmds)
+						}
 					}
 					if wr.err != nil {
 						if wr.err == errClosed {
