@@ -142,15 +142,15 @@ func (c *conn) RemoteAddr() string {
 
 // Reader represents a RESP command reader.
 type reader struct {
-	r *net.TCPConn // base reader
-	b []byte       // unprocessed bytes
-	a []byte       // static read buffer
+	r io.Reader // base reader
+	b []byte    // unprocessed bytes
+	a []byte    // static read buffer
 }
 
 const buflen = 1024 * 8
 
 // NewReader returns a RESP command reader.
-func newReader(r *net.TCPConn) *reader {
+func newReader(r io.Reader) *reader {
 	return &reader{
 		r: r,
 		a: make([]byte, buflen),
