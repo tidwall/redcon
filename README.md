@@ -131,8 +131,9 @@ Benchmarks
 
 **Redis**: Single-threaded, no disk persistence.
 
-`redis-server --port 6379 --appendonly no`
-
+```
+$ redis-server --port 6379 --appendonly no
+```
 ```
 redis-benchmark -p 6379 -t set,get -n 10000000 -q -P 512 -c 512
 SET: 941265.12 requests per second
@@ -141,8 +142,9 @@ GET: 1189909.50 requests per second
 
 **Redcon**: Single-threaded, no disk persistence.
 
-`GOMAXPROCS=1 go run example/clone.go`
-
+```
+$ GOMAXPROCS=1 go run example/clone.go
+```
 ```
 redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
 SET: 1320655.00 requests per second
@@ -151,10 +153,11 @@ GET: 1552354.25 requests per second
 
 **Redcon**: Multi-threaded, no disk persistence.
 
-`GOMAXPROCS=0 go run example/clone.go`
-
 ```
-redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
+$ GOMAXPROCS=0 go run example/clone.go
+```
+```
+$ redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
 SET: 2740477.00 requests per second
 GET: 3210272.75 requests per second
 ```
