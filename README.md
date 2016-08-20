@@ -1,15 +1,25 @@
-Redcon [![GoDoc](https://godoc.org/github.com/tidwall/redcon?status.svg)](https://godoc.org/github.com/tidwall/redcon)
-======
-Super fast Redis RESP server implementation.
-Supports pipelining and telnet commands.
+<p align="center">
+<img 
+    src="logo.png" 
+    width="336" height="75" border="0" alt="REDCON">
+<br>
+<a href="https://travis-ci.org/tidwall/redcon"><img src="https://img.shields.io/travis/tidwall/redcon.svg?style=flat-square" alt="Build Status"></a>
+<a href="https://godoc.org/github.com/tidwall/redcon"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
+</p>
 
-There is only one function `ListenAndServe`, and one type `Conn`.
+<p align="center">Fast Redis server implementation for Go</a></p>
+
+Features
+--------
+- Supports pipelining and telnet commands.
+- Simple interface. One function `ListenAndServe` and one type `Conn`.
+- Works with Redis clients such as [redigo](https://github.com/garyburd/redigo), [redis-py](https://github.com/andymccurdy/redis-py), [node_redis](https://github.com/NodeRedis/node_redis), and [jedis](https://github.com/xetorthio/jedis)
 
 Installing
 ----------
 
 ```
-go get github.com/tidwall/redcon
+go get -u github.com/tidwall/redcon
 ```
 
 Example
