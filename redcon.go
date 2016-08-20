@@ -1,3 +1,4 @@
+// Package redcon provides a custom redis server implementation.
 package redcon
 
 import (
@@ -8,6 +9,7 @@ import (
 	"sync"
 )
 
+// Conn represents a client connection
 type Conn interface {
 	RemoteAddr() string
 	Close() error
@@ -17,6 +19,7 @@ type Conn interface {
 	WriteInt(num int)
 	WriteArray(count int)
 	WriteNull()
+	SetReadBuffer(bytes int)
 }
 
 var (
@@ -24,6 +27,8 @@ var (
 	errInvalidBulkLength      = &errProtocol{"invalid bulk length"}
 	errInvalidMultiBulkLength = &errProtocol{"invalid multibulk length"}
 )
+
+const defaultBufLen = 1024 * 64
 
 type errProtocol struct {
 	msg string
@@ -33,6 +38,7 @@ func (err *errProtocol) Error() string {
 	return "Protocol error: " + err.msg
 }
 
+// ListenAndServe creates a new server and binds to addr.
 func ListenAndServe(
 	addr string, handler func(conn Conn, cmds [][]string),
 	accept func(conn Conn) bool, closed func(conn Conn, err error),
@@ -139,21 +145,23 @@ func (c *conn) WriteNull() {
 func (c *conn) RemoteAddr() string {
 	return c.addr
 }
+func (c *conn) SetReadBuffer(bytes int) {
+	c.rd.buflen = bytes
+}
 
 // Reader represents a RESP command reader.
 type reader struct {
-	r io.Reader // base reader
-	b []byte    // unprocessed bytes
-	a []byte    // static read buffer
+	r      io.Reader // base reader
+	b      []byte    // unprocessed bytes
+	a      []byte    // static read buffer
+	buflen int       // buffer len
 }
-
-const buflen = 1024 * 8
 
 // NewReader returns a RESP command reader.
 func newReader(r io.Reader) *reader {
 	return &reader{
-		r: r,
-		a: make([]byte, buflen),
+		r:      r,
+		buflen: defaultBufLen,
 	}
 }
 
@@ -314,7 +322,7 @@ func (r *reader) ReadCommands() ([][]string, error) {
 		}
 	}
 	if len(r.a) == 0 {
-		r.a = make([]byte, buflen)
+		r.a = make([]byte, r.buflen)
 	}
 	n, err := r.r.Read(r.a)
 	if err != nil {
@@ -344,7 +352,7 @@ type writer struct {
 }
 
 func newWriter(w *net.TCPConn) *writer {
-	return &writer{w: w, b: make([]byte, 0, 256)}
+	return &writer{w: w, b: make([]byte, 0, 512)}
 }
 
 func (w *writer) WriteNull() error {
