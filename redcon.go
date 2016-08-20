@@ -1,7 +1,6 @@
 package redcon
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"net"
@@ -319,28 +318,28 @@ var errClosed = errors.New("closed")
 
 type respWriter struct {
 	w   io.Writer
-	b   *bytes.Buffer
+	b   []byte
 	err error
 }
 
 func newWriter(w io.Writer) *respWriter {
-	return &respWriter{w: w, b: &bytes.Buffer{}}
+	return &respWriter{w: w, b: make([]byte, 0, 256)}
 }
 
 func (w *respWriter) WriteNull() error {
 	if w.err != nil {
 		return w.err
 	}
-	w.b.WriteString("$-1\r\n")
+	w.b = append(w.b, '$', '-', '1', '\r', '\n')
 	return nil
 }
 func (w *respWriter) WriteMultiBulkStart(count int) error {
 	if w.err != nil {
 		return w.err
 	}
-	w.b.WriteByte('*')
-	w.b.WriteString(strconv.FormatInt(int64(count), 10))
-	w.b.WriteString("\r\n")
+	w.b = append(w.b, '*')
+	w.b = append(w.b, []byte(strconv.FormatInt(int64(count), 10))...)
+	w.b = append(w.b, '\r', '\n')
 	return nil
 }
 
@@ -348,11 +347,11 @@ func (w *respWriter) WriteBulk(bulk string) error {
 	if w.err != nil {
 		return w.err
 	}
-	w.b.WriteByte('$')
-	w.b.WriteString(strconv.FormatInt(int64(len(bulk)), 10))
-	w.b.WriteString("\r\n")
-	w.b.WriteString(bulk)
-	w.b.WriteString("\r\n")
+	w.b = append(w.b, '$')
+	w.b = append(w.b, []byte(strconv.FormatInt(int64(len(bulk)), 10))...)
+	w.b = append(w.b, '\r', '\n')
+	w.b = append(w.b, []byte(bulk)...)
+	w.b = append(w.b, '\r', '\n')
 	return nil
 }
 
@@ -360,14 +359,14 @@ func (w *respWriter) Flush() error {
 	if w.err != nil {
 		return w.err
 	}
-	if w.b.Len() == 0 {
+	if len(w.b) == 0 {
 		return nil
 	}
-	if _, err := w.b.WriteTo(w.w); err != nil {
+	if _, err := w.w.Write(w.b); err != nil {
 		w.err = err
 		return err
 	}
-	w.b.Reset()
+	w.b = w.b[:0]
 	return nil
 }
 
@@ -387,9 +386,9 @@ func (w *respWriter) WriteError(msg string) error {
 	if w.err != nil {
 		return w.err
 	}
-	w.b.WriteByte('-')
-	w.b.WriteString(msg)
-	w.b.WriteString("\r\n")
+	w.b = append(w.b, '-')
+	w.b = append(w.b, []byte(msg)...)
+	w.b = append(w.b, '\r', '\n')
 	return nil
 }
 
@@ -397,9 +396,9 @@ func (w *respWriter) WriteString(msg string) error {
 	if w.err != nil {
 		return w.err
 	}
-	w.b.WriteByte('+')
-	w.b.WriteString(msg)
-	w.b.WriteString("\r\n")
+	w.b = append(w.b, '+')
+	w.b = append(w.b, []byte(msg)...)
+	w.b = append(w.b, '\r', '\n')
 	return nil
 }
 
@@ -407,9 +406,9 @@ func (w *respWriter) WriteInt(num int) error {
 	if w.err != nil {
 		return w.err
 	}
-	w.b.WriteByte(':')
-	w.b.WriteString(strconv.FormatInt(int64(num), 10))
-	w.b.WriteString("\r\n")
+	w.b = append(w.b, ':')
+	w.b = append(w.b, []byte(strconv.FormatInt(int64(num), 10))...)
+	w.b = append(w.b, '\r', '\n')
 	return nil
 }
 
