@@ -11,14 +11,29 @@ import (
 
 // Conn represents a client connection
 type Conn interface {
+	// RemoteAddr returns the remote address of the client connection.
 	RemoteAddr() string
+	// Close closes the connection.
 	Close() error
+	// WriteError writes an error to the client.
 	WriteError(msg string)
+	// WriteString writes a string to the client.
 	WriteString(str string)
+	// WriteBulk writes a bulk string to the client.
 	WriteBulk(bulk string)
+	// WriteInt writes an integer to the client.
 	WriteInt(num int)
+	// WriteArray writes an array header. You must then write addtional
+	// sub-responses to the client to complete the response.
+	// For example to write two strings:
+	//
+	//   c.WriteArray(2)
+	//   c.WriteBulk("item 1")
+	//   c.WriteBulk("item 2")
 	WriteArray(count int)
+	// WriteNull writes a null to the client
 	WriteNull()
+	// SetReadBuffer updates the buffer read size for the connection
 	SetReadBuffer(bytes int)
 }
 
