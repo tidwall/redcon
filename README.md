@@ -40,7 +40,7 @@ Here's a full example of a Redis clone that accepts:
 You can run this example from a terminal:
 
 ```sh
-go run examples/clone.go
+go run example/clone.go
 ```
 
 ```go
@@ -142,7 +142,7 @@ GET: 1189909.50 requests per second
 
 **Redcon**: Single-threaded, no disk persistence.
 
-`GOMAXPROCS=1 go run examples/clone.go`
+`GOMAXPROCS=1 go run example/clone.go`
 
 ```
 redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
@@ -152,7 +152,7 @@ GET: 1552354.25
 
 **Redcon**: Multi-threaded, no disk persistence.
 
-`GOMAXPROCS=0 go run examples/clone.go`
+`GOMAXPROCS=0 go run example/clone.go`
 
 ```
 redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
