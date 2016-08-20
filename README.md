@@ -9,13 +9,15 @@
 
 <p align="center">Fast Redis server implementation for Go</a></p>
 
+Redcon is a Redis server implementation for Go that is fast and simple to use. The reason for this library it to give an efficient server front-end for the [BuntDB](https://github.com/tidwall/buntdb) and [Tile38](https://github.com/tidwall/tile38) projects.
+
+
 Features
 --------
-- Create a custom Redis compatible server in Go
+- Create a [Fast](#benchmarks) custom Redis compatible server in Go
 - Simple interface. One function `ListenAndServe` and one type `Conn`
 - Support for pipelining and telnet commands
 - Works with Redis clients such as [redigo](https://github.com/garyburd/redigo), [redis-py](https://github.com/andymccurdy/redis-py), [node_redis](https://github.com/NodeRedis/node_redis), and [jedis](https://github.com/xetorthio/jedis)
-- [Fast](#benchmarks)
 
 
 Installing
@@ -128,6 +130,8 @@ Benchmarks
 ----------
 
 **Redis**: Single-threaded, no disk persistence.
+
+`redis-server --port 6379 --appendonly no`
 
 ```
 redis-benchmark -p 6379 -t set,get -n 10000000 -q -P 512 -c 512
