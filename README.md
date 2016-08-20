@@ -11,9 +11,12 @@
 
 Features
 --------
-- Supports pipelining and telnet commands.
-- Simple interface. One function `ListenAndServe` and one type `Conn`.
+- Create a custom Redis compatible server in Go
+- Simple interface. One function `ListenAndServe` and one type `Conn`
+- Support for pipelining and telnet commands
 - Works with Redis clients such as [redigo](https://github.com/garyburd/redigo), [redis-py](https://github.com/andymccurdy/redis-py), [node_redis](https://github.com/NodeRedis/node_redis), and [jedis](https://github.com/xetorthio/jedis)
+- [Fast](#benchmarks)
+
 
 Installing
 ----------
@@ -120,6 +123,40 @@ func main() {
 	}
 }
 ```
+
+Benchmarks
+----------
+
+**Redis**: Single-threaded, no disk persistence.
+
+```
+redis-benchmark -p 6379 -t set,get -n 10000000 -q -P 512 -c 512
+SET: 941265.12 requests per second
+GET: 1189909.50 requests per second
+
+```
+
+**Redcon**: Single-threaded, no disk persistence.
+
+`GOMAXPROCS=1 go run examples/clone.go`
+
+```
+redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
+SET: 1320655.00 requests per second
+GET: 1552354.25
+```
+
+**Redcon**: Multi-threaded, no disk persistence.
+
+`GOMAXPROCS=0 go run examples/clone.go`
+
+```
+redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
+SET: 2740477.00 requests per second
+GET: 3210272.75 requests per second
+```
+
+*Running a MacBook Pro 15" 2.8 GHz Intel Core i7 using Go 1.7*
 
 Contact
 -------
