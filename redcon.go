@@ -42,17 +42,22 @@ func ListenAndServe(
 		return err
 	}
 	defer ln.Close()
+	tcpln := ln.(*net.TCPListener)
 	if handler == nil {
 		handler = func(conn Conn, cmds [][]string) {}
 	}
 	var mu sync.Mutex
 	for {
-		nc, err := ln.Accept()
+		tcpc, err := tcpln.AcceptTCP()
 		if err != nil {
 			return err
 		}
-		tcpc := nc.(*net.TCPConn)
-		c := &conn{tcpc, newWriter(tcpc), tcpc.RemoteAddr().String()}
+		c := &conn{
+			tcpc,
+			newWriter(tcpc),
+			newReader(tcpc),
+			tcpc.RemoteAddr().String(),
+		}
 		if accept != nil && !accept(c) {
 			c.Close()
 			continue
@@ -75,10 +80,9 @@ func handle(c *conn, mu *sync.Mutex,
 			closed(c, err)
 		}
 	}()
-	rd := newReader(c.conn)
 	err = func() error {
 		for {
-			cmds, err := rd.ReadCommands()
+			cmds, err := c.rd.ReadCommands()
 			if err != nil {
 				if err, ok := err.(*errProtocol); ok {
 					// All protocol errors should attempt a response to
@@ -107,6 +111,7 @@ func handle(c *conn, mu *sync.Mutex,
 type conn struct {
 	conn *net.TCPConn
 	wr   *writer
+	rd   *reader
 	addr string
 }
 
@@ -136,22 +141,24 @@ func (c *conn) RemoteAddr() string {
 }
 
 // Reader represents a RESP command reader.
-type respReader struct {
+type reader struct {
 	r *net.TCPConn // base reader
 	b []byte       // unprocessed bytes
 	a []byte       // static read buffer
 }
 
+const buflen = 1024 * 8
+
 // NewReader returns a RESP command reader.
-func newReader(r *net.TCPConn) *respReader {
-	return &respReader{
+func newReader(r *net.TCPConn) *reader {
+	return &reader{
 		r: r,
-		a: make([]byte, 8192),
+		a: make([]byte, buflen),
 	}
 }
 
 // ReadCommands reads one or more commands from the reader.
-func (r *respReader) ReadCommands() ([][]string, error) {
+func (r *reader) ReadCommands() ([][]string, error) {
 	if len(r.b) > 0 {
 		// we have some potential commands.
 		var cmds [][]string
@@ -306,7 +313,10 @@ func (r *respReader) ReadCommands() ([][]string, error) {
 			return cmds, nil
 		}
 	}
-	n, err := r.r.Read(r.a[:])
+	if len(r.a) == 0 {
+		r.a = make([]byte, buflen)
+	}
+	n, err := r.r.Read(r.a)
 	if err != nil {
 		if err == io.EOF {
 			if len(r.b) > 0 {
@@ -315,7 +325,13 @@ func (r *respReader) ReadCommands() ([][]string, error) {
 		}
 		return nil, err
 	}
-	r.b = append(r.b, r.a[:n]...)
+	if len(r.b) == 0 {
+		r.b = r.a[:n]
+	} else {
+		r.b = append(r.b, r.a[:n]...)
+	}
+	r.a = r.a[n:]
+
 	return r.ReadCommands()
 }
 
