@@ -160,7 +160,7 @@ SET: 2740477.00 requests per second
 GET: 3210272.75 requests per second
 ```
 
-*Running a MacBook Pro 15" 2.8 GHz Intel Core i7 using Go 1.7*
+*Running on a MacBook Pro 15" 2.8 GHz Intel Core i7 using Go 1.7*
 
 Contact
 -------
