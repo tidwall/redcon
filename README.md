@@ -7,9 +7,9 @@
 <a href="https://godoc.org/github.com/tidwall/redcon"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
 </p>
 
-<p align="center">Fast Redis server implementation for Go</a></p>
+<p align="center">Fast custom Redis server implementation for Go</a></p>
 
-Redcon is a Redis server implementation for Go that is fast and simple to use. The reason for this library it to give an efficient server front-end for the [BuntDB](https://github.com/tidwall/buntdb) and [Tile38](https://github.com/tidwall/tile38) projects.
+Redcon is a custom Redis server implementation for Go that is fast and simple to use. The reason for this library it to give an efficient server front-end for the [BuntDB](https://github.com/tidwall/buntdb) and [Tile38](https://github.com/tidwall/tile38) projects.
 
 
 Features
