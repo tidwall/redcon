@@ -146,7 +146,7 @@ GET: 1189909.50 requests per second
 ```
 redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
 SET: 1320655.00 requests per second
-GET: 1552354.25
+GET: 1552354.25 requests per second
 ```
 
 **Redcon**: Multi-threaded, no disk persistence.
