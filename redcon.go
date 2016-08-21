@@ -53,24 +53,78 @@ func (err *errProtocol) Error() string {
 	return "Protocol error: " + err.msg
 }
 
-// ListenAndServe creates a new server and binds to addr.
-func ListenAndServe(
+// Server represents a Redcon server.
+type Server struct {
+	mu      sync.Mutex
+	addr    string
+	handler func(conn Conn, cmds [][]string)
+	accept  func(conn Conn) bool
+	closed  func(conn Conn, err error)
+	ln      *net.TCPListener
+	done    bool
+	conns   map[*conn]bool
+}
+
+// NewServer returns a new server
+func NewServer(
 	addr string, handler func(conn Conn, cmds [][]string),
 	accept func(conn Conn) bool, closed func(conn Conn, err error),
-) error {
+) *Server {
+	return &Server{
+		addr:    addr,
+		handler: handler,
+		accept:  accept,
+		closed:  closed,
+		conns:   make(map[*conn]bool),
+	}
+}
+
+// Close stops listening on the TCP address.
+// Already Accepted connections will be closed.
+func (s *Server) Close() error {
+	if s.ln == nil {
+		return errors.New("not serving")
+	}
+	s.mu.Lock()
+	s.done = true
+	s.mu.Unlock()
+	return s.ln.Close()
+}
+
+// ListenAndServe serves incoming connections.
+func (s *Server) ListenAndServe() error {
+	var addr = s.addr
+	var handler = s.handler
+	var accept = s.accept
+	var closed = s.closed
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
-	defer ln.Close()
-	tcpln := ln.(*net.TCPListener)
+	s.ln = ln.(*net.TCPListener)
+	defer func() {
+		ln.Close()
+		func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			for c := range s.conns {
+				c.Close()
+			}
+			s.conns = nil
+		}()
+	}()
 	if handler == nil {
 		handler = func(conn Conn, cmds [][]string) {}
 	}
-	var mu sync.Mutex
 	for {
-		tcpc, err := tcpln.AcceptTCP()
+		tcpc, err := s.ln.AcceptTCP()
 		if err != nil {
+			s.mu.Lock()
+			done := s.done
+			s.mu.Unlock()
+			if done {
+				return nil
+			}
 			return err
 		}
 		c := &conn{
@@ -83,23 +137,39 @@ func ListenAndServe(
 			c.Close()
 			continue
 		}
-		go handle(c, &mu, handler, closed)
+		s.mu.Lock()
+		s.conns[c] = true
+		s.mu.Unlock()
+		go handle(s, c, handler, closed)
 	}
 }
-func handle(c *conn, mu *sync.Mutex,
+
+// ListenAndServe creates a new server and binds to addr.
+func ListenAndServe(
+	addr string, handler func(conn Conn, cmds [][]string),
+	accept func(conn Conn) bool, closed func(conn Conn, err error),
+) error {
+	return NewServer(addr, handler, accept, closed).ListenAndServe()
+}
+
+func handle(
+	s *Server, c *conn,
 	handler func(conn Conn, cmds [][]string),
 	closed func(conn Conn, err error)) {
 	var err error
 	defer func() {
 		c.conn.Close()
-		if closed != nil {
-			mu.Lock()
-			defer mu.Unlock()
-			if err == io.EOF {
-				err = nil
+		func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			delete(s.conns, c)
+			if closed != nil {
+				if err == io.EOF {
+					err = nil
+				}
+				closed(c, err)
 			}
-			closed(c, err)
-		}
+		}()
 	}()
 	err = func() error {
 		for {
@@ -137,7 +207,9 @@ type conn struct {
 }
 
 func (c *conn) Close() error {
-	return c.wr.Close()
+	err := c.wr.Close() // flush and close the writer
+	c.conn.Close()      // close the connection. ignore this error
+	return err          // return the writer error only
 }
 func (c *conn) WriteString(str string) {
 	c.wr.WriteString(str)
@@ -152,7 +224,7 @@ func (c *conn) WriteError(msg string) {
 	c.wr.WriteError(msg)
 }
 func (c *conn) WriteArray(count int) {
-	c.wr.WriteMultiBulkStart(count)
+	c.wr.WriteArrayStart(count)
 }
 func (c *conn) WriteNull() {
 	c.wr.WriteNull()
@@ -377,7 +449,7 @@ func (w *writer) WriteNull() error {
 	w.b = append(w.b, '$', '-', '1', '\r', '\n')
 	return nil
 }
-func (w *writer) WriteMultiBulkStart(count int) error {
+func (w *writer) WriteArrayStart(count int) error {
 	if w.err != nil {
 		return w.err
 	}
@@ -411,18 +483,6 @@ func (w *writer) Flush() error {
 		return err
 	}
 	w.b = w.b[:0]
-	return nil
-}
-
-func (w *writer) WriteMultiBulk(bulks []string) error {
-	if err := w.WriteMultiBulkStart(len(bulks)); err != nil {
-		return err
-	}
-	for _, bulk := range bulks {
-		if err := w.WriteBulk(bulk); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

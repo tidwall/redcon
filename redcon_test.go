@@ -5,6 +5,8 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -178,9 +180,8 @@ func TestRandomCommands(t *testing.T) {
 	}
 }
 
-/*
 func TestServer(t *testing.T) {
-	err := ListenAndServe(":11111",
+	s := NewServer(":12345",
 		func(conn Conn, cmds [][]string) {
 			for _, cmd := range cmds {
 				switch strings.ToLower(cmd[0]) {
@@ -191,19 +192,108 @@ func TestServer(t *testing.T) {
 				case "quit":
 					conn.WriteString("OK")
 					conn.Close()
+				case "int":
+					conn.WriteInt(100)
+				case "bulk":
+					conn.WriteBulk("bulk")
+				case "null":
+					conn.WriteNull()
+				case "err":
+					conn.WriteError("ERR error")
+				case "array":
+					conn.WriteArray(2)
+					conn.WriteInt(99)
+					conn.WriteString("Hi!")
 				}
 			}
 		},
 		func(conn Conn) bool {
-			log.Printf("accept: %s", conn.RemoteAddr())
+			//log.Printf("accept: %s", conn.RemoteAddr())
 			return true
 		},
 		func(conn Conn, err error) {
-			log.Printf("closed: %s [%v]", conn.RemoteAddr(), err)
+			//log.Printf("closed: %s [%v]", conn.RemoteAddr(), err)
 		},
 	)
+	if err := s.Close(); err == nil {
+		t.Fatalf("expected an error, should not be able to close before serving")
+	}
+	go func() {
+		time.Sleep(time.Second / 4)
+		if err := ListenAndServe(":12345", nil, nil, nil); err == nil {
+			t.Fatalf("expected an error, should not be able to listen on the same port")
+		}
+		time.Sleep(time.Second / 4)
+
+		err := s.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = s.Close()
+		if err == nil {
+			t.Fatalf("expected an error")
+		}
+	}()
+	go func() {
+		c, err := net.Dial("tcp", ":12345")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		do := func(cmd string) (string, error) {
+			io.WriteString(c, cmd)
+			buf := make([]byte, 1024)
+			n, err := c.Read(buf)
+			if err != nil {
+				return "", err
+			}
+			return string(buf[:n]), nil
+		}
+		res, err := do("PING\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "+PONG\r\n" {
+			t.Fatal("expecting '+PONG\r\n', got '%v'", res)
+		}
+		res, err = do("BULK\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "$4\r\nbulk\r\n" {
+			t.Fatal("expecting bulk, got '%v'", res)
+		}
+		res, err = do("INT\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != ":100\r\n" {
+			t.Fatal("expecting int, got '%v'", res)
+		}
+		res, err = do("NULL\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "$-1\r\n" {
+			t.Fatal("expecting nul, got '%v'", res)
+		}
+		res, err = do("ARRAY\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "*2\r\n:99\r\n+Hi!\r\n" {
+			t.Fatal("expecting array, got '%v'", res)
+		}
+		res, err = do("ERR\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "-ERR error\r\n" {
+			t.Fatal("expecting array, got '%v'", res)
+		}
+	}()
+	err := s.ListenAndServe()
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 }
-*/
