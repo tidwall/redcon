@@ -82,12 +82,12 @@ func NewServer(
 // Close stops listening on the TCP address.
 // Already Accepted connections will be closed.
 func (s *Server) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.ln == nil {
 		return errors.New("not serving")
 	}
-	s.mu.Lock()
 	s.done = true
-	s.mu.Unlock()
 	return s.ln.Close()
 }
 
