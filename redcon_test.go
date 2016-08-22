@@ -292,7 +292,14 @@ func TestServer(t *testing.T) {
 			t.Fatal("expecting array, got '%v'", res)
 		}
 	}()
-	err := s.ListenAndServe()
+	signal := make(chan error)
+	go func() {
+		err := s.ListenServeAndSignal(signal)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	err := <-signal
 	if err != nil {
 		t.Fatal(err)
 	}

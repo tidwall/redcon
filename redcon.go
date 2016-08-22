@@ -93,13 +93,25 @@ func (s *Server) Close() error {
 
 // ListenAndServe serves incoming connections.
 func (s *Server) ListenAndServe() error {
+	return s.ListenServeAndSignal(nil)
+}
+
+// ListenServeAndSignal serves incoming connections and passes nil or error
+// when listening. signal can be nil.
+func (s *Server) ListenServeAndSignal(signal chan error) error {
 	var addr = s.addr
 	var handler = s.handler
 	var accept = s.accept
 	var closed = s.closed
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
+		if signal != nil {
+			signal <- err
+		}
 		return err
+	}
+	if signal != nil {
+		signal <- nil
 	}
 	s.ln = ln.(*net.TCPListener)
 	defer func() {
