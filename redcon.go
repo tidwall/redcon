@@ -113,7 +113,9 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 	if signal != nil {
 		signal <- nil
 	}
+	s.mu.Lock()
 	s.ln = ln.(*net.TCPListener)
+	s.mu.Unlock()
 	defer func() {
 		ln.Close()
 		func() {
