@@ -196,6 +196,8 @@ func TestServer(t *testing.T) {
 					conn.WriteInt(100)
 				case "bulk":
 					conn.WriteBulk("bulk")
+				case "bulkbytes":
+					conn.WriteBulkBytes([]byte("bulkbytes"))
 				case "null":
 					conn.WriteNull()
 				case "err":
@@ -262,6 +264,13 @@ func TestServer(t *testing.T) {
 		}
 		if res != "$4\r\nbulk\r\n" {
 			t.Fatal("expecting bulk, got '%v'", res)
+		}
+		res, err = do("BULKBYTES\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "$9\r\nbulkbytes\r\n" {
+			t.Fatal("expecting bulkbytes, got '%v'", res)
 		}
 		res, err = do("INT\r\n")
 		if err != nil {

@@ -21,6 +21,8 @@ type Conn interface {
 	WriteString(str string)
 	// WriteBulk writes a bulk string to the client.
 	WriteBulk(bulk string)
+	// WriteBulkBytes writes bulk bytes to the client.
+	WriteBulkBytes(bulk []byte)
 	// WriteInt writes an integer to the client.
 	WriteInt(num int)
 	// WriteArray writes an array header. You must then write addtional
@@ -231,6 +233,9 @@ func (c *conn) WriteString(str string) {
 }
 func (c *conn) WriteBulk(bulk string) {
 	c.wr.WriteBulk(bulk)
+}
+func (c *conn) WriteBulkBytes(bulk []byte) {
+	c.wr.WriteBulkBytes(bulk)
 }
 func (c *conn) WriteInt(num int) {
 	c.wr.WriteInt(num)
@@ -482,6 +487,18 @@ func (w *writer) WriteBulk(bulk string) error {
 	w.b = append(w.b, []byte(strconv.FormatInt(int64(len(bulk)), 10))...)
 	w.b = append(w.b, '\r', '\n')
 	w.b = append(w.b, []byte(bulk)...)
+	w.b = append(w.b, '\r', '\n')
+	return nil
+}
+
+func (w *writer) WriteBulkBytes(bulk []byte) error {
+	if w.err != nil {
+		return w.err
+	}
+	w.b = append(w.b, '$')
+	w.b = append(w.b, []byte(strconv.FormatInt(int64(len(bulk)), 10))...)
+	w.b = append(w.b, '\r', '\n')
+	w.b = append(w.b, bulk...)
 	w.b = append(w.b, '\r', '\n')
 	return nil
 }
