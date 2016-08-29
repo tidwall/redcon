@@ -37,6 +37,10 @@ type Conn interface {
 	WriteNull()
 	// SetReadBuffer updates the buffer read size for the connection
 	SetReadBuffer(bytes int)
+	// Context returns a user-defined context
+	Context() interface{}
+	// SetContext sets a user-defined context
+	SetContext(v interface{})
 }
 
 var (
@@ -149,6 +153,7 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 			newWriter(tcpc),
 			newReader(tcpc),
 			tcpc.RemoteAddr().String(),
+			nil,
 		}
 		if accept != nil && !accept(c) {
 			c.Close()
@@ -221,12 +226,19 @@ type conn struct {
 	wr   *writer
 	rd   *reader
 	addr string
+	ctx  interface{}
 }
 
 func (c *conn) Close() error {
 	err := c.wr.Close() // flush and close the writer
 	c.conn.Close()      // close the connection. ignore this error
 	return err          // return the writer error only
+}
+func (c *conn) Context() interface{} {
+	return c.ctx
+}
+func (c *conn) SetContext(v interface{}) {
+	c.ctx = v
 }
 func (c *conn) WriteString(str string) {
 	c.wr.WriteString(str)
