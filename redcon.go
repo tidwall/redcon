@@ -75,7 +75,6 @@ type Server struct {
 	conns    map[*conn]bool
 	rdpool   [][]byte
 	wrpool   [][]byte
-	initbuf  []byte
 }
 
 // NewServer returns a new server
@@ -83,14 +82,19 @@ func NewServer(
 	addr string, handler func(conn Conn, cmds [][]string),
 	accept func(conn Conn) bool, closed func(conn Conn, err error),
 ) *Server {
-	return &Server{
+	s := &Server{
 		addr:     addr,
 		shandler: handler,
 		accept:   accept,
 		closed:   closed,
 		conns:    make(map[*conn]bool),
-		initbuf:  make([]byte, defaultPoolSize*defaultBufLen),
 	}
+	initbuf := make([]byte, defaultPoolSize*defaultBufLen)
+	s.rdpool = make([][]byte, defaultPoolSize)
+	for i := 0; i < defaultPoolSize; i++ {
+		s.rdpool[i] = initbuf[i*defaultBufLen : i*defaultBufLen+defaultBufLen]
+	}
+	return s
 }
 
 // NewServerBytes returns a new server
@@ -168,7 +172,7 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 		c := &conn{
 			tcpc,
 			newWriter(tcpc),
-			newReader(tcpc),
+			newReader(tcpc, nil),
 			tcpc.RemoteAddr().String(),
 			nil,
 		}
@@ -176,11 +180,14 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 		if len(s.rdpool) > 0 {
 			c.rd.buf = s.rdpool[len(s.rdpool)-1]
 			s.rdpool = s.rdpool[:len(s.rdpool)-1]
+		} else {
+			c.rd.buf = make([]byte, defaultBufLen)
 		}
 		if len(s.wrpool) > 0 {
 			c.wr.b = s.wrpool[len(s.wrpool)-1]
 			s.wrpool = s.wrpool[:len(s.wrpool)-1]
-			c.wr.b = c.wr.b[:0]
+		} else {
+			c.wr.b = make([]byte, 0, 64)
 		}
 		s.conns[c] = true
 		s.mu.Unlock()
@@ -240,8 +247,8 @@ func handle(
 			if len(s.rdpool) < defaultPoolSize && len(c.rd.buf) < defaultBufLen {
 				s.rdpool = append(s.rdpool, c.rd.buf)
 			}
-			if len(s.wrpool) < defaultPoolSize && len(c.wr.b) < defaultBufLen {
-				s.wrpool = append(s.wrpool, c.wr.b)
+			if len(s.wrpool) < defaultPoolSize && cap(c.wr.b) < defaultBufLen {
+				s.wrpool = append(s.wrpool, c.wr.b[:0])
 			}
 		}()
 	}()
@@ -338,23 +345,21 @@ func (c *conn) RemoteAddr() string {
 	return c.addr
 }
 func (c *conn) SetReadBuffer(bytes int) {
-	c.rd.buflen = bytes
 }
 
 // Reader represents a RESP command reader.
 type reader struct {
-	r      io.Reader // base reader
-	buf    []byte
-	start  int
-	end    int
-	buflen int
+	r     io.Reader // base reader
+	buf   []byte
+	start int
+	end   int
 }
 
 // NewReader returns a RESP command reader.
-func newReader(r io.Reader) *reader {
+func newReader(r io.Reader, buf []byte) *reader {
 	return &reader{
-		r:      r,
-		buflen: defaultBufLen,
+		r:   r,
+		buf: buf,
 	}
 }
 
@@ -526,13 +531,9 @@ func (r *reader) ReadCommands() ([][][]byte, error) {
 		}
 	}
 	if r.end == len(r.buf) {
-		if len(r.buf) == 0 {
-			r.buf = make([]byte, r.buflen)
-		} else {
-			nbuf := make([]byte, len(r.buf)*2)
-			copy(nbuf, r.buf)
-			r.buf = nbuf
-		}
+		nbuf := make([]byte, len(r.buf)*2)
+		copy(nbuf, r.buf)
+		r.buf = nbuf
 	}
 	n, err := r.r.Read(r.buf[r.end:])
 	if err != nil {

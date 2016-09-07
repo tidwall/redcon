@@ -145,7 +145,7 @@ func TestRandomCommands(t *testing.T) {
 	cnt := 0
 	idx := 0
 	start := time.Now()
-	r := newReader(rd)
+	r := newReader(rd, make([]byte, 256))
 	for {
 		cmds, err := r.ReadCommands()
 		if err != nil {
