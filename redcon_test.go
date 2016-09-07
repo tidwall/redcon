@@ -155,7 +155,7 @@ func TestRandomCommands(t *testing.T) {
 			log.Fatal(err)
 		}
 		for _, cmd := range cmds {
-			if len(cmd) == 3 && cmd[0] == "RESET" && cmd[1] == "THE" && cmd[2] == "INDEX" {
+			if len(cmd) == 3 && string(cmd[0]) == "RESET" && string(cmd[1]) == "THE" && string(cmd[2]) == "INDEX" {
 				if idx != len(gcmds) {
 					t.Fatalf("did not process all commands")
 				}
@@ -186,7 +186,7 @@ func TestRandomCommands(t *testing.T) {
 							continue
 						}
 					}
-				} else if cmd[i] == gcmds[idx][i] {
+				} else if string(cmd[i]) == string(gcmds[idx][i]) {
 					continue
 				}
 				t.Fatalf("not equal for index %d/%d", idx, i)
