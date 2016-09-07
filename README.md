@@ -147,8 +147,8 @@ $ GOMAXPROCS=1 go run example/clone.go
 ```
 ```
 redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
-SET: 1320655.00 requests per second
-GET: 1552354.25 requests per second
+SET: 3119151.50 requests per second
+GET: 4142502.25 requests per second
 ```
 
 **Redcon**: Multi-threaded, no disk persistence.
@@ -158,8 +158,8 @@ $ GOMAXPROCS=0 go run example/clone.go
 ```
 ```
 $ redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
-SET: 2740477.00 requests per second
-GET: 3210272.75 requests per second
+SET: 3637686.25 requests per second
+GET: 4249894.00 requests per second
 ```
 
 *Running on a MacBook Pro 15" 2.8 GHz Intel Core i7 using Go 1.7*

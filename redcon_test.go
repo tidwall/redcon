@@ -166,9 +166,30 @@ func TestRandomCommands(t *testing.T) {
 				t.Fatalf("len not equal for index %d -- %d != %d", idx, len(cmd), len(gcmds[idx]))
 			}
 			for i := 0; i < len(cmd); i++ {
-				if cmd[i] != gcmds[idx][i] {
-					t.Fatalf("not equal for index %d/%d", idx, i)
+				if i == 0 {
+					if len(cmd[i]) == len(gcmds[idx][i]) {
+						ok := true
+						for j := 0; j < len(cmd[i]); j++ {
+							c1, c2 := cmd[i][j], gcmds[idx][i][j]
+							if c1 >= 'A' && c1 <= 'Z' {
+								c1 += 32
+							}
+							if c2 >= 'A' && c2 <= 'Z' {
+								c2 += 32
+							}
+							if c1 != c2 {
+								ok = false
+								break
+							}
+						}
+						if ok {
+							continue
+						}
+					}
+				} else if cmd[i] == gcmds[idx][i] {
+					continue
 				}
+				t.Fatalf("not equal for index %d/%d", idx, i)
 			}
 			idx++
 			cnt++

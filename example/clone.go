@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"strings"
 	"sync"
 
 	"github.com/tidwall/redcon"
@@ -17,7 +16,7 @@ func main() {
 	err := redcon.ListenAndServe(addr,
 		func(conn redcon.Conn, commands [][]string) {
 			for _, args := range commands {
-				switch strings.ToLower(args[0]) {
+				switch args[0] {
 				default:
 					conn.WriteError("ERR unknown command '" + args[0] + "'")
 				case "ping":
