@@ -50,8 +50,8 @@ var (
 )
 
 const (
-	defaultBufLen   = 2 * 1024
-	defaultPoolSize = 3
+	defaultBufLen   = 4 * 1024
+	defaultPoolSize = 64
 )
 
 type errProtocol struct {
@@ -75,6 +75,7 @@ type Server struct {
 	conns    map[*conn]bool
 	rdpool   [][]byte
 	wrpool   [][]byte
+	initbuf  []byte
 }
 
 // NewServer returns a new server
@@ -88,6 +89,7 @@ func NewServer(
 		accept:   accept,
 		closed:   closed,
 		conns:    make(map[*conn]bool),
+		initbuf:  make([]byte, defaultPoolSize*defaultBufLen),
 	}
 }
 
@@ -97,13 +99,9 @@ func NewServerBytes(
 	addr string, handler func(conn Conn, cmds [][][]byte),
 	accept func(conn Conn) bool, closed func(conn Conn, err error),
 ) *Server {
-	return &Server{
-		addr:     addr,
-		bhandler: handler,
-		accept:   accept,
-		closed:   closed,
-		conns:    make(map[*conn]bool),
-	}
+	s := NewServer(addr, nil, accept, closed)
+	s.bhandler = handler
+	return s
 }
 
 // Close stops listening on the TCP address.
@@ -182,6 +180,7 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 		if len(s.wrpool) > 0 {
 			c.wr.b = s.wrpool[len(s.wrpool)-1]
 			s.wrpool = s.wrpool[:len(s.wrpool)-1]
+			c.wr.b = c.wr.b[:0]
 		}
 		s.conns[c] = true
 		s.mu.Unlock()
@@ -238,10 +237,10 @@ func handle(
 				}
 				closed(c, err)
 			}
-			if len(s.rdpool) < defaultPoolSize {
+			if len(s.rdpool) < defaultPoolSize && len(c.rd.buf) < defaultBufLen {
 				s.rdpool = append(s.rdpool, c.rd.buf)
 			}
-			if len(s.wrpool) < defaultPoolSize {
+			if len(s.wrpool) < defaultPoolSize && len(c.wr.b) < defaultBufLen {
 				s.wrpool = append(s.wrpool, c.wr.b)
 			}
 		}()
@@ -357,11 +356,6 @@ func newReader(r io.Reader) *reader {
 		r:      r,
 		buflen: defaultBufLen,
 	}
-}
-func (rd *reader) reassign(r io.Reader) {
-	rd.r = r
-	rd.start = 0
-	rd.end = 0
 }
 
 // ReadCommands reads one or more commands from the reader.
