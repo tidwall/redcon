@@ -271,7 +271,7 @@ func handle(
 					for i := 0; i < len(cmds); i++ {
 						scmds[i] = make([]string, len(cmds[i]))
 						for j := 0; j < len(scmds[i]); j++ {
-							scmds[i][j] = string(scmds[i][j])
+							scmds[i][j] = string(cmds[i][j])
 						}
 					}
 					shandler(c, scmds)
