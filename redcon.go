@@ -276,8 +276,7 @@ func handle(
 					}
 					shandler(c, scmds)
 				} else if bhandler != nil {
-					// copy the byte commands once, before exposing to the
-					// client.
+					// copy the byte commands once, before exposing to client.
 					for i := 0; i < len(cmds); i++ {
 						for j := 0; j < len(cmds[i]); j++ {
 							nb := make([]byte, len(cmds[i][j]))
@@ -493,13 +492,6 @@ func (r *reader) ReadCommands() ([][][]byte, error) {
 									}
 									i++
 									arg := b[i : i+ni2]
-									if len(args) == 0 {
-										for j := 0; j < len(arg); j++ {
-											if arg[j] >= 'A' && arg[j] <= 'Z' {
-												arg[j] += 32
-											}
-										}
-									}
 									i += ni2 + 1
 									args = append(args, arg)
 									break
