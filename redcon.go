@@ -41,12 +41,43 @@ type Conn interface {
 	Context() interface{}
 	// SetContext sets a user-defined context
 	SetContext(v interface{})
+	// Hijack return an unmanaged connection. Useful for operations like PubSub.
+	//
+	//  hconn := conn.Hijack()
+	//  go func(){
+	//      defer hconn.Close()
+	//      cmd, err := hconn.ReadCommand()
+	//      if err != nil{
+	//          fmt.Printf("read failed: %v\n", err)
+	//	        return
+	//      }
+	//      fmt.Printf("received command: %v", cmd)
+	//      hconn.WriteString("OK")
+	//      if err := hconn.Flush(); err != nil{
+	//          fmt.Printf("write failed: %v\n", err)
+	//	        return
+	//      }
+	//  }()
+	Hijack() HijackedConn
+}
+
+// HijackConn represents an unmanaged connection.
+type HijackedConn interface {
+	// Conn is the original connection
+	Conn
+	// ReadCommand reads the next client command.
+	ReadCommand() ([]string, error)
+	// ReadCommandBytes reads the next client command as bytes.
+	ReadCommandBytes() ([][]byte, error)
+	// Flush flushes any writes to the network.
+	Flush() error
 }
 
 var (
 	errUnbalancedQuotes       = &errProtocol{"unbalanced quotes in request"}
 	errInvalidBulkLength      = &errProtocol{"invalid bulk length"}
 	errInvalidMultiBulkLength = &errProtocol{"invalid multibulk length"}
+	errHijacked               = errors.New("hijacked")
 )
 
 const (
@@ -174,7 +205,7 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 			newWriter(tcpc),
 			newReader(tcpc, nil),
 			tcpc.RemoteAddr().String(),
-			nil,
+			nil, false,
 		}
 		s.mu.Lock()
 		if len(s.rdpool) > 0 {
@@ -233,7 +264,9 @@ func handle(
 	closed func(conn Conn, err error)) {
 	var err error
 	defer func() {
-		c.conn.Close()
+		if err != errHijacked {
+			c.conn.Close()
+		}
 		func() {
 			s.mu.Lock()
 			defer s.mu.Unlock()
@@ -244,16 +277,21 @@ func handle(
 				}
 				closed(c, err)
 			}
-			if len(s.rdpool) < defaultPoolSize && len(c.rd.buf) < defaultBufLen {
-				s.rdpool = append(s.rdpool, c.rd.buf)
-			}
-			if len(s.wrpool) < defaultPoolSize && cap(c.wr.b) < defaultBufLen {
-				s.wrpool = append(s.wrpool, c.wr.b[:0])
+			if err != errHijacked {
+				if len(s.rdpool) < defaultPoolSize && len(c.rd.buf) < defaultBufLen {
+					s.rdpool = append(s.rdpool, c.rd.buf)
+				}
+				if len(s.wrpool) < defaultPoolSize && cap(c.wr.b) < defaultBufLen {
+					s.wrpool = append(s.wrpool, c.wr.b[:0])
+				}
 			}
 		}()
 	}()
 	err = func() error {
 		for {
+			if c.hj {
+				return errHijacked
+			}
 			cmds, err := c.rd.ReadCommands()
 			if err != nil {
 				if err, ok := err.(*errProtocol); ok {
@@ -306,6 +344,7 @@ type conn struct {
 	rd   *reader
 	addr string
 	ctx  interface{}
+	hj   bool
 }
 
 func (c *conn) Close() error {
@@ -344,6 +383,51 @@ func (c *conn) RemoteAddr() string {
 	return c.addr
 }
 func (c *conn) SetReadBuffer(bytes int) {
+}
+func (c *conn) Hijack() HijackedConn {
+	c.hj = true
+	return &hijackedConn{conn: c}
+}
+
+type hijackedConn struct {
+	*conn
+	cmds [][][]byte
+}
+
+func (hjc *hijackedConn) Flush() error {
+	return hjc.conn.wr.Flush()
+}
+
+func (hjc *hijackedConn) ReadCommandBytes() ([][]byte, error) {
+	if len(hjc.cmds) > 0 {
+		args := hjc.cmds[0]
+		hjc.cmds = hjc.cmds[1:]
+		for i, arg := range args {
+			nb := make([]byte, len(arg))
+			copy(nb, arg)
+			args[i] = nb
+		}
+		return args, nil
+	}
+	cmds, err := hjc.rd.ReadCommands()
+	if err != nil {
+		return nil, err
+	}
+	hjc.cmds = cmds
+	return hjc.ReadCommandBytes()
+}
+
+func (hjc *hijackedConn) ReadCommand() ([]string, error) {
+	if len(hjc.cmds) > 0 {
+		args := hjc.cmds[0]
+		hjc.cmds = hjc.cmds[1:]
+		nargs := make([]string, len(args))
+		for i, arg := range args {
+			nargs[i] = string(arg)
+		}
+		return nargs, nil
+	}
+	return hjc.ReadCommand()
 }
 
 // Reader represents a RESP command reader.

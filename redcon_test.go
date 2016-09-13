@@ -200,6 +200,12 @@ func TestRandomCommands(t *testing.T) {
 		fmt.Printf("%d commands in %s - %.0f ops/sec\n", cnt, dur, float64(cnt)/(float64(dur)/float64(time.Second)))
 	}
 }
+func testHijack(t *testing.T, conn HijackedConn) {
+	conn.WriteString("HIJACKED")
+	if err := conn.Flush(); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestServer(t *testing.T) {
 	s := NewServer(":12345",
@@ -213,6 +219,8 @@ func TestServer(t *testing.T) {
 				case "quit":
 					conn.WriteString("OK")
 					conn.Close()
+				case "hijack":
+					go testHijack(t, conn.Hijack())
 				case "int":
 					conn.WriteInt(100)
 				case "bulk":
@@ -257,7 +265,16 @@ func TestServer(t *testing.T) {
 			t.Fatalf("expected an error")
 		}
 	}()
+	done := make(chan bool)
+	signal := make(chan error)
 	go func() {
+		defer func() {
+			done <- true
+		}()
+		err := <-signal
+		if err != nil {
+			t.Fatal(err)
+		}
 		c, err := net.Dial("tcp", ":12345")
 		if err != nil {
 			t.Fatal(err)
@@ -321,16 +338,19 @@ func TestServer(t *testing.T) {
 		if res != "-ERR error\r\n" {
 			t.Fatal("expecting array, got '%v'", res)
 		}
+		res, err = do("HIJACK\r\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res != "+HIJACKED\r\n" {
+			t.Fatal("expecting string, got '%v'", res)
+		}
 	}()
-	signal := make(chan error)
 	go func() {
 		err := s.ListenServeAndSignal(signal)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	err := <-signal
-	if err != nil {
-		t.Fatal(err)
-	}
+	<-done
 }

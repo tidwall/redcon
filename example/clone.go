@@ -20,6 +20,15 @@ func main() {
 				switch strings.ToLower(args[0]) {
 				default:
 					conn.WriteError("ERR unknown command '" + args[0] + "'")
+				case "hijack":
+					hconn := conn.Hijack()
+					log.Printf("connection is hijacked")
+					go func() {
+						defer hconn.Close()
+						hconn.WriteString("OK")
+						hconn.Flush()
+					}()
+					return
 				case "ping":
 					conn.WriteString("PONG")
 				case "quit":
