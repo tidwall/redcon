@@ -12,64 +12,62 @@ var addr = ":6380"
 
 func main() {
 	var mu sync.RWMutex
-	var items = make(map[string]string)
+	var items = make(map[string][]byte)
 	go log.Printf("started server at %s", addr)
 	err := redcon.ListenAndServe(addr,
-		func(conn redcon.Conn, commands [][]string) {
-			for _, args := range commands {
-				switch strings.ToLower(args[0]) {
-				default:
-					conn.WriteError("ERR unknown command '" + args[0] + "'")
-				case "hijack":
-					hconn := conn.Hijack()
-					log.Printf("connection is hijacked")
-					go func() {
-						defer hconn.Close()
-						hconn.WriteString("OK")
-						hconn.Flush()
-					}()
+		func(conn redcon.Conn, cmd redcon.Command) {
+			switch strings.ToLower(string(cmd.Args[0])) {
+			default:
+				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
+			case "detach":
+				hconn := conn.Detach()
+				log.Printf("connection has been detached")
+				go func() {
+					defer hconn.Close()
+					hconn.WriteString("OK")
+					hconn.Flush()
+				}()
+				return
+			case "ping":
+				conn.WriteString("PONG")
+			case "quit":
+				conn.WriteString("OK")
+				conn.Close()
+			case "set":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 					return
-				case "ping":
-					conn.WriteString("PONG")
-				case "quit":
-					conn.WriteString("OK")
-					conn.Close()
-				case "set":
-					if len(args) != 3 {
-						conn.WriteError("ERR wrong number of arguments for '" + args[0] + "' command")
-						continue
-					}
-					mu.Lock()
-					items[args[1]] = args[2]
-					mu.Unlock()
-					conn.WriteString("OK")
-				case "get":
-					if len(args) != 2 {
-						conn.WriteError("ERR wrong number of arguments for '" + args[0] + "' command")
-						continue
-					}
-					mu.RLock()
-					val, ok := items[args[1]]
-					mu.RUnlock()
-					if !ok {
-						conn.WriteNull()
-					} else {
-						conn.WriteBulk(val)
-					}
-				case "del":
-					if len(args) != 2 {
-						conn.WriteError("ERR wrong number of arguments for '" + args[0] + "' command")
-						continue
-					}
-					mu.Lock()
-					_, ok := items[args[1]]
-					delete(items, args[1])
-					mu.Unlock()
-					if !ok {
-						conn.WriteInt(0)
-					} else {
-						conn.WriteInt(1)
-					}
+				}
+				mu.Lock()
+				items[string(cmd.Args[1])] = cmd.Args[2]
+				mu.Unlock()
+				conn.WriteString("OK")
+			case "get":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				mu.RLock()
+				val, ok := items[string(cmd.Args[1])]
+				mu.RUnlock()
+				if !ok {
+					conn.WriteNull()
+				} else {
+					conn.WriteBulk(val)
+				}
+			case "del":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				mu.Lock()
+				_, ok := items[string(cmd.Args[1])]
+				delete(items, string(cmd.Args[1]))
+				mu.Unlock()
+				if !ok {
+					conn.WriteInt(0)
+				} else {
+					conn.WriteInt(1)
 				}
 			}
 		},

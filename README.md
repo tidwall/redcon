@@ -11,14 +11,12 @@
 
 Redcon is a custom Redis server framework for Go that is fast and simple to use. The reason for this library it to give an efficient server front-end for the [BuntDB](https://github.com/tidwall/buntdb) and [Tile38](https://github.com/tidwall/tile38) projects.
 
-
 Features
 --------
 - Create a [Fast](#benchmarks) custom Redis compatible server in Go
-- Simple interface. One function `ListenAndServe` and one type `Conn`
+- Simple interface. One function `ListenAndServe` and two types `Conn` & `Command`
 - Support for pipelining and telnet commands
 - Works with Redis clients such as [redigo](https://github.com/garyburd/redigo), [redis-py](https://github.com/andymccurdy/redis-py), [node_redis](https://github.com/NodeRedis/node_redis), and [jedis](https://github.com/xetorthio/jedis)
-
 
 Installing
 ----------
@@ -29,6 +27,7 @@ go get -u github.com/tidwall/redcon
 
 Example
 -------
+
 Here's a full example of a Redis clone that accepts:
 
 - SET key value
@@ -58,55 +57,53 @@ var addr = ":6380"
 
 func main() {
 	var mu sync.RWMutex
-	var items = make(map[string]string)
+	var items = make(map[string][]byte)
 	go log.Printf("started server at %s", addr)
 	err := redcon.ListenAndServe(addr,
-		func(conn redcon.Conn, commands [][]string) {
-			for _, args := range commands {
-				switch strings.ToLower(args[0]) {
-				default:
-					conn.WriteError("ERR unknown command '" + args[0] + "'")
-				case "ping":
-					conn.WriteString("PONG")
-				case "quit":
-					conn.WriteString("OK")
-					conn.Close()
-				case "set":
-					if len(args) != 3 {
-						conn.WriteError("ERR wrong number of arguments for '" + args[0] + "' command")
-						continue
-					}
-					mu.Lock()
-					items[args[1]] = args[2]
-					mu.Unlock()
-					conn.WriteString("OK")
-				case "get":
-					if len(args) != 2 {
-						conn.WriteError("ERR wrong number of arguments for '" + args[0] + "' command")
-						continue
-					}
-					mu.RLock()
-					val, ok := items[args[1]]
-					mu.RUnlock()
-					if !ok {
-						conn.WriteNull()
-					} else {
-						conn.WriteBulk(val)
-					}
-				case "del":
-					if len(args) != 2 {
-						conn.WriteError("ERR wrong number of arguments for '" + args[0] + "' command")
-						continue
-					}
-					mu.Lock()
-					_, ok := items[args[1]]
-					delete(items, args[1])
-					mu.Unlock()
-					if !ok {
-						conn.WriteInt(0)
-					} else {
-						conn.WriteInt(1)
-					}
+		func(conn redcon.Conn, cmd redcon.Command) {
+			switch strings.ToLower(string(cmd.Args[0])) {
+			default:
+				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
+			case "ping":
+				conn.WriteString("PONG")
+			case "quit":
+				conn.WriteString("OK")
+				conn.Close()
+			case "set":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				mu.Lock()
+				items[string(cmd.Args[1])] = cmd.Args[2]
+				mu.Unlock()
+				conn.WriteString("OK")
+			case "get":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				mu.RLock()
+				val, ok := items[string(cmd.Args[1])]
+				mu.RUnlock()
+				if !ok {
+					conn.WriteNull()
+				} else {
+					conn.WriteBulk(val)
+				}
+			case "del":
+				if len(cmd.Args) != 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				mu.Lock()
+				_, ok := items[string(cmd.Args[1])]
+				delete(items, string(cmd.Args[1]))
+				mu.Unlock()
+				if !ok {
+					conn.WriteInt(0)
+				} else {
+					conn.WriteInt(1)
 				}
 			}
 		},
@@ -147,8 +144,8 @@ $ GOMAXPROCS=1 go run example/clone.go
 ```
 ```
 redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
-SET: 3119151.50 requests per second
-GET: 4142502.25 requests per second
+SET: 2018570.88 requests per second
+GET: 2403846.25 requests per second
 ```
 
 **Redcon**: Multi-threaded, no disk persistence.
@@ -158,8 +155,8 @@ $ GOMAXPROCS=0 go run example/clone.go
 ```
 ```
 $ redis-benchmark -p 6380 -t set,get -n 10000000 -q -P 512 -c 512
-SET: 3637686.25 requests per second
-GET: 4249894.00 requests per second
+SET: 1944390.38 requests per second
+GET: 3993610.25 requests per second
 ```
 
 *Running on a MacBook Pro 15" 2.8 GHz Intel Core i7 using Go 1.7*
