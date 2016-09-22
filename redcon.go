@@ -80,6 +80,8 @@ type Conn interface {
 	//       }
 	//   }()
 	Detach() DetachedConn
+	// ReadPipeline returns all commands in current pipeline, if any
+	ReadPipeline() []Command
 }
 
 // NewServer returns a new Redcon server.
@@ -219,7 +221,14 @@ func handle(s *Server, c *conn) {
 				}
 				return err
 			}
-			for _, cmd := range cmds {
+			c.cmds = cmds
+			for len(c.cmds) > 0 {
+				cmd := c.cmds[0]
+				if len(c.cmds) == 1 {
+					c.cmds = nil
+				} else {
+					c.cmds = c.cmds[1:]
+				}
 				s.handler(c, cmd)
 			}
 			if c.detached {
@@ -245,6 +254,7 @@ type conn struct {
 	ctx      interface{}
 	detached bool
 	closed   bool
+	cmds     []Command
 }
 
 func (c *conn) Close() error {
@@ -263,6 +273,11 @@ func (c *conn) WriteArray(count int)        { c.wr.WriteArray(count) }
 func (c *conn) WriteNull()                  { c.wr.WriteNull() }
 func (c *conn) WriteRaw(data []byte)        { c.wr.WriteRaw(data) }
 func (c *conn) RemoteAddr() string          { return c.addr }
+func (c *conn) ReadPipeline() []Command {
+	cmds := c.cmds
+	c.cmds = nil
+	return cmds
+}
 
 // DetachedConn represents a connection that is detached from the server
 type DetachedConn interface {
@@ -281,11 +296,14 @@ type DetachedConn interface {
 // until Flush() is called.
 func (c *conn) Detach() DetachedConn {
 	c.detached = true
-	return &detachedConn{conn: c}
+	cmds := c.cmds
+	c.cmds = nil
+	return &detachedConn{conn: c, cmds: cmds}
 }
 
 type detachedConn struct {
 	*conn
+	cmds []Command
 }
 
 // Flush writes and Write* calls to the client.
@@ -297,6 +315,15 @@ func (dc *detachedConn) Flush() error {
 func (dc *detachedConn) ReadCommand() (Command, error) {
 	if dc.closed {
 		return Command{}, errors.New("closed")
+	}
+	if len(dc.cmds) > 0 {
+		cmd := dc.cmds[0]
+		if len(dc.cmds) == 1 {
+			dc.cmds = nil
+		} else {
+			dc.cmds = dc.cmds[1:]
+		}
+		return cmd, nil
 	}
 	cmd, err := dc.rd.ReadCommand()
 	if err != nil {
