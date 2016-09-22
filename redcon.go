@@ -53,6 +53,8 @@ type Conn interface {
 	WriteArray(count int)
 	// WriteNull writes a null to the client
 	WriteNull()
+	// WriteRaw writes raw data to the client.
+	WriteRaw(data []byte)
 	// Context returns a user-defined context
 	Context() interface{}
 	// SetContext sets a user-defined context
@@ -259,6 +261,7 @@ func (c *conn) WriteInt(num int)            { c.wr.WriteInt(num) }
 func (c *conn) WriteError(msg string)       { c.wr.WriteError(msg) }
 func (c *conn) WriteArray(count int)        { c.wr.WriteArray(count) }
 func (c *conn) WriteNull()                  { c.wr.WriteNull() }
+func (c *conn) WriteRaw(data []byte)        { c.wr.WriteRaw(data) }
 func (c *conn) RemoteAddr() string          { return c.addr }
 
 // DetachedConn represents a connection that is detached from the server
@@ -403,6 +406,11 @@ func (w *Writer) WriteInt(num int) {
 	w.b = append(w.b, ':')
 	w.b = append(w.b, []byte(strconv.FormatInt(int64(num), 10))...)
 	w.b = append(w.b, '\r', '\n')
+}
+
+// WriteRaw writes raw data to the client.
+func (w *Writer) WriteRaw(data []byte) {
+	w.b = append(w.b, data...)
 }
 
 // Reader represent a reader for RESP or telnet commands.
