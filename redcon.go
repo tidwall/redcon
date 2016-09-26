@@ -83,7 +83,7 @@ type Conn interface {
 	// ReadPipeline returns all commands in current pipeline, if any
 	// The commands are removed from the pipeline.
 	ReadPipeline() []Command
-	// ReadPipeline returns all commands in current pipeline, if any.
+	// PeekPipeline returns all commands in current pipeline, if any.
 	// The commands remain in the pipeline.
 	PeekPipeline() []Command
 }
