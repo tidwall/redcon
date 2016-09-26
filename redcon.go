@@ -81,7 +81,11 @@ type Conn interface {
 	//   }()
 	Detach() DetachedConn
 	// ReadPipeline returns all commands in current pipeline, if any
+	// The commands are removed from the pipeline.
 	ReadPipeline() []Command
+	// ReadPipeline returns all commands in current pipeline, if any.
+	// The commands remain in the pipeline.
+	PeekPipeline() []Command
 }
 
 // NewServer returns a new Redcon server.
@@ -277,6 +281,9 @@ func (c *conn) ReadPipeline() []Command {
 	cmds := c.cmds
 	c.cmds = nil
 	return cmds
+}
+func (c *conn) PeekPipeline() []Command {
+	return c.cmds
 }
 
 // DetachedConn represents a connection that is detached from the server
