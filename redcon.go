@@ -43,6 +43,8 @@ type Conn interface {
 	WriteBulkString(bulk string)
 	// WriteInt writes an integer to the client.
 	WriteInt(num int)
+	// WriteInt64 writes a 64-but signed integer to the client.
+	WriteInt64(num int64)
 	// WriteArray writes an array header. You must then write addtional
 	// sub-responses to the client to complete the response.
 	// For example to write two strings:
@@ -272,6 +274,7 @@ func (c *conn) WriteString(str string)      { c.wr.WriteString(str) }
 func (c *conn) WriteBulk(bulk []byte)       { c.wr.WriteBulk(bulk) }
 func (c *conn) WriteBulkString(bulk string) { c.wr.WriteBulkString(bulk) }
 func (c *conn) WriteInt(num int)            { c.wr.WriteInt(num) }
+func (c *conn) WriteInt64(num int64)        { c.wr.WriteInt64(num) }
 func (c *conn) WriteError(msg string)       { c.wr.WriteError(msg) }
 func (c *conn) WriteArray(count int)        { c.wr.WriteArray(count) }
 func (c *conn) WriteNull()                  { c.wr.WriteNull() }
@@ -437,8 +440,13 @@ func (w *Writer) WriteString(msg string) {
 
 // WriteInt writes an integer to the client.
 func (w *Writer) WriteInt(num int) {
+	w.WriteInt64(int64(num))
+}
+
+// WriteInt64 writes a 64-bit signed integer to the client.
+func (w *Writer) WriteInt64(num int64) {
 	w.b = append(w.b, ':')
-	w.b = append(w.b, []byte(strconv.FormatInt(int64(num), 10))...)
+	w.b = append(w.b, []byte(strconv.FormatInt(num, 10))...)
 	w.b = append(w.b, '\r', '\n')
 }
 
