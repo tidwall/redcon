@@ -289,6 +289,14 @@ func (c *conn) PeekPipeline() []Command {
 	return c.cmds
 }
 
+// BaseWriter returns the underlying connection writer, if any
+func BaseWriter(c Conn) *Writer {
+	if c, ok := c.(*conn); ok {
+		return c.wr
+	}
+	return nil
+}
+
 // DetachedConn represents a connection that is detached from the server
 type DetachedConn interface {
 	// Conn is the original connection
@@ -409,6 +417,18 @@ func (w *Writer) WriteBulkString(bulk string) {
 	w.b = append(w.b, '\r', '\n')
 	w.b = append(w.b, bulk...)
 	w.b = append(w.b, '\r', '\n')
+}
+
+// Buffer returns the unflushed buffer. This is a copy so changes
+// to the resulting []byte will not affect the writer.
+func (w *Writer) Buffer() []byte {
+	return append([]byte(nil), w.b...)
+}
+
+// SetBuffer replaces the unflushed buffer with new bytes.
+func (w *Writer) SetBuffer(raw []byte) {
+	w.b = w.b[:0]
+	w.b = append(w.b, raw...)
 }
 
 // Flush writes all unflushed Write* calls to the underlying writer.
