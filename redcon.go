@@ -530,6 +530,7 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 					}
 					var cmd Command
 					var quote bool
+					var quotech byte
 					var escape bool
 				outer:
 					for {
@@ -544,10 +545,11 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 									line = line[i+1:]
 									continue outer
 								}
-								if c == '"' {
+								if c == '"' || c == '\'' {
 									if i != 0 {
 										return nil, errUnbalancedQuotes
 									}
+									quotech = c
 									quote = true
 									line = line[i+1:]
 									continue outer
@@ -563,8 +565,9 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 									case 't':
 										c = '\t'
 									}
-								} else if c == '"' {
+								} else if c == quotech {
 									quote = false
+									quotech = 0
 									cmd.Args = append(cmd.Args, nline)
 									line = line[i+1:]
 									if len(line) > 0 && line[0] != ' ' {
