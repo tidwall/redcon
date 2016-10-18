@@ -212,8 +212,9 @@ func TestServerTCP(t *testing.T) {
 	testServerNetwork(t, "tcp", ":12345")
 }
 func TestServerUnix(t *testing.T) {
-	defer os.RemoveAll("unix.net")
-	testServerNetwork(t, "unix", "unix.net")
+	os.RemoveAll("/tmp/redcon-unix.sock")
+	defer os.RemoveAll("/tmp/redcon-unix.sock")
+	testServerNetwork(t, "unix", "/tmp/redcon-unix.sock")
 }
 
 func testServerNetwork(t *testing.T, network, laddr string) {
@@ -257,10 +258,6 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 		t.Fatalf("expected an error, should not be able to close before serving")
 	}
 	go func() {
-
-		if network == "unix" {
-			os.RemoveAll(laddr)
-		}
 		time.Sleep(time.Second / 4)
 		if err := ListenAndServeNetwork(network, laddr, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
 			t.Fatalf("expected an error, should not be able to listen on the same port")
