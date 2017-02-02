@@ -534,7 +534,11 @@ func parseInt(b []byte) (int, error) {
 func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 	var cmds []Command
 	b := rd.buf[rd.start:rd.end]
-
+	if rd.end-rd.start == 0 && len(rd.buf) > 4096 {
+		rd.buf = rd.buf[:4096]
+		rd.start = 0
+		rd.end = 0
+	}
 	if len(b) > 0 {
 		// we have data, yay!
 		// but is this enough data for a complete command? or multiple?
