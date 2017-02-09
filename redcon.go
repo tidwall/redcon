@@ -88,6 +88,8 @@ type Conn interface {
 	// PeekPipeline returns all commands in current pipeline, if any.
 	// The commands remain in the pipeline.
 	PeekPipeline() []Command
+	// NetConn returns the base net.Conn connection
+	NetConn() net.Conn
 }
 
 // NewServer returns a new Redcon server configured on "tcp" network net.
@@ -308,6 +310,9 @@ func (c *conn) ReadPipeline() []Command {
 }
 func (c *conn) PeekPipeline() []Command {
 	return c.cmds
+}
+func (c *conn) NetConn() net.Conn {
+	return c.conn
 }
 
 // BaseWriter returns the underlying connection writer, if any
