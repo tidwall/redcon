@@ -287,6 +287,7 @@ type conn struct {
 }
 
 func (c *conn) Close() error {
+	c.wr.Flush()
 	c.closed = true
 	return c.conn.Close()
 }
