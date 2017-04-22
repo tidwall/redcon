@@ -424,14 +424,14 @@ func (w *Writer) WriteNull() {
 //   c.WriteBulk("item 2")
 func (w *Writer) WriteArray(count int) {
 	w.b = append(w.b, '*')
-	w.b = append(w.b, strconv.FormatInt(int64(count), 10)...)
+	w.b = strconv.AppendInt(w.b, int64(count), 10)
 	w.b = append(w.b, '\r', '\n')
 }
 
 // WriteBulk writes bulk bytes to the client.
 func (w *Writer) WriteBulk(bulk []byte) {
 	w.b = append(w.b, '$')
-	w.b = append(w.b, strconv.FormatInt(int64(len(bulk)), 10)...)
+	w.b = strconv.AppendInt(w.b, int64(len(bulk)), 10)
 	w.b = append(w.b, '\r', '\n')
 	w.b = append(w.b, bulk...)
 	w.b = append(w.b, '\r', '\n')
@@ -440,7 +440,7 @@ func (w *Writer) WriteBulk(bulk []byte) {
 // WriteBulkString writes a bulk string to the client.
 func (w *Writer) WriteBulkString(bulk string) {
 	w.b = append(w.b, '$')
-	w.b = append(w.b, strconv.FormatInt(int64(len(bulk)), 10)...)
+	w.b = strconv.AppendInt(w.b, int64(len(bulk)), 10)
 	w.b = append(w.b, '\r', '\n')
 	w.b = append(w.b, bulk...)
 	w.b = append(w.b, '\r', '\n')
@@ -493,7 +493,7 @@ func (w *Writer) WriteInt(num int) {
 // WriteInt64 writes a 64-bit signed integer to the client.
 func (w *Writer) WriteInt64(num int64) {
 	w.b = append(w.b, ':')
-	w.b = append(w.b, []byte(strconv.FormatInt(num, 10))...)
+	w.b = strconv.AppendInt(w.b, num, 10)
 	w.b = append(w.b, '\r', '\n')
 }
 
