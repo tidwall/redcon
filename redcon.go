@@ -480,7 +480,7 @@ func (w *Writer) WriteString(msg string) {
 		w.b = append(w.b, '+', 'O', 'K', '\r', '\n')
 	} else {
 		w.b = append(w.b, '+')
-		w.b = append(w.b, []byte(msg)...)
+		w.b = append(w.b, msg...)
 		w.b = append(w.b, '\r', '\n')
 	}
 }
