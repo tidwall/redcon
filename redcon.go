@@ -477,13 +477,9 @@ func (w *Writer) WriteError(msg string) {
 
 // WriteString writes a string to the client.
 func (w *Writer) WriteString(msg string) {
-	if msg == "OK" {
-		w.b = append(w.b, '+', 'O', 'K', '\r', '\n')
-	} else {
-		w.b = append(w.b, '+')
-		w.b = append(w.b, msg...)
-		w.b = append(w.b, '\r', '\n')
-	}
+	w.b = append(w.b, '+')
+	w.b = append(w.b, msg...)
+	w.b = append(w.b, '\r', '\n')
 }
 
 // WriteInt writes an integer to the client.
