@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"strconv"
 	"sync"
 )
 
@@ -413,7 +412,7 @@ func NewWriter(wr io.Writer) *Writer {
 
 // WriteNull writes a null to the client
 func (w *Writer) WriteNull() {
-	w.b = append(w.b, '$', '-', '1', '\r', '\n')
+	w.b = AppendNull(w.b)
 }
 
 // WriteArray writes an array header. You must then write addtional
@@ -424,27 +423,17 @@ func (w *Writer) WriteNull() {
 //   c.WriteBulk("item 1")
 //   c.WriteBulk("item 2")
 func (w *Writer) WriteArray(count int) {
-	w.b = append(w.b, '*')
-	w.b = strconv.AppendInt(w.b, int64(count), 10)
-	w.b = append(w.b, '\r', '\n')
+	w.b = AppendArray(w.b, count)
 }
 
 // WriteBulk writes bulk bytes to the client.
 func (w *Writer) WriteBulk(bulk []byte) {
-	w.b = append(w.b, '$')
-	w.b = strconv.AppendInt(w.b, int64(len(bulk)), 10)
-	w.b = append(w.b, '\r', '\n')
-	w.b = append(w.b, bulk...)
-	w.b = append(w.b, '\r', '\n')
+	w.b = AppendBulk(w.b, bulk)
 }
 
 // WriteBulkString writes a bulk string to the client.
 func (w *Writer) WriteBulkString(bulk string) {
-	w.b = append(w.b, '$')
-	w.b = strconv.AppendInt(w.b, int64(len(bulk)), 10)
-	w.b = append(w.b, '\r', '\n')
-	w.b = append(w.b, bulk...)
-	w.b = append(w.b, '\r', '\n')
+	w.b = AppendBulkString(w.b, bulk)
 }
 
 // Buffer returns the unflushed buffer. This is a copy so changes
@@ -470,16 +459,12 @@ func (w *Writer) Flush() error {
 
 // WriteError writes an error to the client.
 func (w *Writer) WriteError(msg string) {
-	w.b = append(w.b, '-')
-	w.b = append(w.b, msg...)
-	w.b = append(w.b, '\r', '\n')
+	w.b = AppendError(w.b, msg)
 }
 
 // WriteString writes a string to the client.
 func (w *Writer) WriteString(msg string) {
-	w.b = append(w.b, '+')
-	w.b = append(w.b, msg...)
-	w.b = append(w.b, '\r', '\n')
+	w.b = AppendString(w.b, msg)
 }
 
 // WriteInt writes an integer to the client.
@@ -489,9 +474,7 @@ func (w *Writer) WriteInt(num int) {
 
 // WriteInt64 writes a 64-bit signed integer to the client.
 func (w *Writer) WriteInt64(num int64) {
-	w.b = append(w.b, ':')
-	w.b = strconv.AppendInt(w.b, num, 10)
-	w.b = append(w.b, '\r', '\n')
+	w.b = AppendInt(w.b, num)
 }
 
 // WriteRaw writes raw data to the client.
@@ -516,21 +499,27 @@ func NewReader(rd io.Reader) *Reader {
 	}
 }
 
-func parseInt(b []byte) (int, error) {
-	// shortcut atoi for 0-99. fails for negative numbers.
-	switch len(b) {
-	case 1:
-		if b[0] >= '0' && b[0] <= '9' {
-			return int(b[0] - '0'), nil
-		}
-	case 2:
-		if b[0] >= '0' && b[0] <= '9' && b[1] >= '0' && b[1] <= '9' {
-			return int(b[0]-'0')*10 + int(b[1]-'0'), nil
-		}
+func parseInt(b []byte) (int, bool) {
+	if len(b) == 1 && b[0] >= '0' && b[0] <= '9' {
+		return int(b[0] - '0'), true
 	}
-	// fallback to standard library
-	n, err := strconv.ParseUint(string(b), 10, 64)
-	return int(n), err
+	var n int
+	var sign bool
+	var i int
+	if len(b) > 0 && b[0] == '-' {
+		sign = true
+		i++
+	}
+	for ; i < len(b); i++ {
+		if b[i] < '0' || b[i] > '9' {
+			return 0, false
+		}
+		n = n*10 + int(b[i]-'0')
+	}
+	if sign {
+		n *= -1
+	}
+	return n, true
 }
 
 func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
@@ -645,8 +634,8 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 					if b[i-1] != '\r' {
 						return nil, errInvalidMultiBulkLength
 					}
-					count, err := parseInt(b[1 : i-1])
-					if err != nil || count <= 0 {
+					count, ok := parseInt(b[1 : i-1])
+					if !ok || count <= 0 {
 						return nil, errInvalidMultiBulkLength
 					}
 					marks = marks[:0]
@@ -664,8 +653,8 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 									if b[i-1] != '\r' {
 										return nil, errInvalidBulkLength
 									}
-									size, err := parseInt(b[si+1 : i-1])
-									if err != nil || size < 0 {
+									size, ok := parseInt(b[si+1 : i-1])
+									if !ok || size < 0 {
 										return nil, errInvalidBulkLength
 									}
 									if i+size+2 >= len(b) {
