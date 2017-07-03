@@ -64,17 +64,15 @@ func TestNextCommand(t *testing.T) {
 				data = chunk
 			}
 			for {
-				leftover, args, _, stop, err := ReadNextCommand(data, nil)
+				complete, args, _, leftover, err := ReadNextCommand(data, nil)
 				data = leftover
-				if err != nil && err != errIncompletePacket {
+				if err != nil {
 					t.Fatal(err)
 				}
-				if err != errIncompletePacket {
-					fargs = append(fargs, args)
-				}
-				if stop {
+				if !complete {
 					break
 				}
+				fargs = append(fargs, args)
 			}
 			rbuf = append(rbuf[:0], data...)
 		}

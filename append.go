@@ -18,21 +18,20 @@ const (
 )
 
 var errInvalidMessage = &errProtocol{"invalid message"}
-var errIncompletePacket = &errProtocol{"incomplete packet"}
 
 // ReadNextCommand reads the next command from the provided packet. It's
 // possible that the packet contains multiple commands, or zero commands
 // when the packet is incomplete.
-// 'args' is an optional reusable buffer and it can be nil.
-// 'argsout' are the output arguments for the command. 'kind' is the type of
-// command that was read.
-// 'stop' indicates that there are no more possible commands in the packet.
-// 'err' is returned when a protocol error was encountered.
+// 'argsbuf' is an optional reusable buffer and it can be nil.
+// 'complete' indicates that a command was read. false means no more commands.
+// 'args' are the output arguments for the command.
+// 'kind' is the type of command that was read.
 // 'leftover' is any remaining unused bytes which belong to the next command.
-func ReadNextCommand(packet []byte, args [][]byte) (
-	leftover []byte, argsout [][]byte, kind Kind, stop bool, err error,
+// 'err' is returned when a protocol error was encountered.
+func ReadNextCommand(packet []byte, argsbuf [][]byte) (
+	complete bool, args [][]byte, kind Kind, leftover []byte, err error,
 ) {
-	args = args[:0]
+	args = argsbuf[:0]
 	if len(packet) > 0 {
 		if packet[0] != '*' {
 			if packet[0] == '$' {
@@ -44,17 +43,15 @@ func ReadNextCommand(packet []byte, args [][]byte) (
 		for s, i := 1, 1; i < len(packet); i++ {
 			if packet[i] == '\n' {
 				if packet[i-1] != '\r' {
-					println("here", i)
-					return packet, args[:0], Redis, true, errInvalidMultiBulkLength
+					return false, args[:0], Redis, packet, errInvalidMultiBulkLength
 				}
 				count, ok := parseInt(packet[s : i-1])
 				if !ok || count < 0 {
-					println("there", i, count, ok, "["+string(packet[s:i-1])+"]")
-					return packet, args[:0], Redis, true, errInvalidMultiBulkLength
+					return false, args[:0], Redis, packet, errInvalidMultiBulkLength
 				}
 				i++
 				if count == 0 {
-					return packet[i:], args[:0], Redis, i == len(packet), nil
+					return true, args[:0], Redis, packet[i:], nil
 				}
 			nextArg:
 				for j := 0; j < count; j++ {
@@ -62,29 +59,29 @@ func ReadNextCommand(packet []byte, args [][]byte) (
 						break
 					}
 					if packet[i] != '$' {
-						return packet, args[:0], Redis, true,
+						return false, args[:0], Redis, packet,
 							&errProtocol{"expected '$', got '" +
 								string(packet[i]) + "'"}
 					}
 					for s := i + 1; i < len(packet); i++ {
 						if packet[i] == '\n' {
 							if packet[i-1] != '\r' {
-								return packet, args[:0], Redis, true, errInvalidBulkLength
+								return false, args[:0], Redis, packet, errInvalidBulkLength
 							}
 							n, ok := parseInt(packet[s : i-1])
 							if !ok || count <= 0 {
-								return packet, args[:0], Redis, true, errInvalidBulkLength
+								return false, args[:0], Redis, packet, errInvalidBulkLength
 							}
 							i++
 							if len(packet)-i >= n+2 {
 								if packet[i+n] != '\r' || packet[i+n+1] != '\n' {
-									return packet, args[:0], Redis, true, errInvalidBulkLength
+									return false, args[:0], Redis, packet, errInvalidBulkLength
 								}
 								args = append(args, packet[i:i+n])
 								i += n + 2
 								if j == count-1 {
 									// done reading
-									return packet[i:], args, Redis, i == len(packet), nil
+									return true, args, Redis, packet[i:], nil
 								}
 								continue nextArg
 							}
@@ -97,24 +94,24 @@ func ReadNextCommand(packet []byte, args [][]byte) (
 			}
 		}
 	}
-	return packet, args[:0], Redis, true, errIncompletePacket
+	return false, args[:0], Redis, packet, nil
 }
 
-func readTile38Command(b []byte, argsbuf [][]byte) (
-	leftover []byte, args [][]byte, kind Kind, stop bool, err error,
+func readTile38Command(packet []byte, argsbuf [][]byte) (
+	complete bool, args [][]byte, kind Kind, leftover []byte, err error,
 ) {
-	for i := 1; i < len(b); i++ {
-		if b[i] == ' ' {
-			n, ok := parseInt(b[1:i])
+	for i := 1; i < len(packet); i++ {
+		if packet[i] == ' ' {
+			n, ok := parseInt(packet[1:i])
 			if !ok || n < 0 {
-				return b, args[:0], Tile38, true, errInvalidMessage
+				return false, args[:0], Tile38, packet, errInvalidMessage
 			}
 			i++
-			if len(b) >= i+n+2 {
-				if b[i+n] != '\r' || b[i+n+1] != '\n' {
-					return b, args[:0], Tile38, true, errInvalidMessage
+			if len(packet) >= i+n+2 {
+				if packet[i+n] != '\r' || packet[i+n+1] != '\n' {
+					return false, args[:0], Tile38, packet, errInvalidMessage
 				}
-				line := b[i : i+n]
+				line := packet[i : i+n]
 			reading:
 				for len(line) != 0 {
 					if line[0] == '{' {
@@ -147,24 +144,24 @@ func readTile38Command(b []byte, argsbuf [][]byte) (
 					args = append(args, line)
 					break
 				}
-				return b[i+n+2:], args, Tile38, i == len(b), nil
+				return true, args, Tile38, packet[i+n+2:], nil
 			}
 			break
 		}
 	}
-	return b, args[:0], Tile38, true, errIncompletePacket
+	return false, args[:0], Tile38, packet, nil
 }
-func readTelnetCommand(b []byte, argsbuf [][]byte) (
-	leftover []byte, args [][]byte, kind Kind, stop bool, err error,
+func readTelnetCommand(packet []byte, argsbuf [][]byte) (
+	complete bool, args [][]byte, kind Kind, leftover []byte, err error,
 ) {
 	// just a plain text command
-	for i := 0; i < len(b); i++ {
-		if b[i] == '\n' {
+	for i := 0; i < len(packet); i++ {
+		if packet[i] == '\n' {
 			var line []byte
-			if i > 0 && b[i-1] == '\r' {
-				line = b[:i-1]
+			if i > 0 && packet[i-1] == '\r' {
+				line = packet[:i-1]
 			} else {
-				line = b[:i]
+				line = packet[:i]
 			}
 			var quote bool
 			var quotech byte
@@ -184,7 +181,7 @@ func readTelnetCommand(b []byte, argsbuf [][]byte) (
 						}
 						if c == '"' || c == '\'' {
 							if i != 0 {
-								return b, args[:0], Telnet, true, errUnbalancedQuotes
+								return false, args[:0], Telnet, packet, errUnbalancedQuotes
 							}
 							quotech = c
 							quote = true
@@ -208,7 +205,7 @@ func readTelnetCommand(b []byte, argsbuf [][]byte) (
 							args = append(args, nline)
 							line = line[i+1:]
 							if len(line) > 0 && line[0] != ' ' {
-								return b, args[:0], Telnet, true, errUnbalancedQuotes
+								return false, args[:0], Telnet, packet, errUnbalancedQuotes
 							}
 							continue outer
 						} else if c == '\\' {
@@ -219,17 +216,17 @@ func readTelnetCommand(b []byte, argsbuf [][]byte) (
 					nline = append(nline, c)
 				}
 				if quote {
-					return b, args[:0], Telnet, true, errUnbalancedQuotes
+					return false, args[:0], Telnet, packet, errUnbalancedQuotes
 				}
 				if len(line) > 0 {
 					args = append(args, line)
 				}
 				break
 			}
-			return b[i+1:], args, Telnet, i == len(b), nil
+			return true, args, Telnet, packet[i+1:], nil
 		}
 	}
-	return b, args[:0], Telnet, true, errIncompletePacket
+	return false, args[:0], Telnet, packet, nil
 }
 
 // AppendUint appends a Redis protocol uint64 to the input bytes.
