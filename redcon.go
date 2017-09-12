@@ -3,6 +3,7 @@ package redcon
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net"
@@ -100,7 +101,7 @@ func NewServer(addr string,
 	return NewServerNetwork("tcp", addr, handler, accept, closed)
 }
 
-// NewServerNetworkType returns a new Redcon server. The network net must be
+// NewServerNetwork returns a new Redcon server. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func NewServerNetwork(
 	net, laddr string,
@@ -120,6 +121,34 @@ func NewServerNetwork(
 		conns:   make(map[*conn]bool),
 	}
 	return s
+}
+
+// NewServerNetworkTLS returns a new TLS Redcon server. The network net must be
+// a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
+func NewServerNetworkTLS(
+	net, laddr string,
+	handler func(conn Conn, cmd Command),
+	accept func(conn Conn) bool,
+	closed func(conn Conn, err error),
+	config *tls.Config,
+) *TLSServer {
+	if handler == nil {
+		panic("handler is nil")
+	}
+	s := Server{
+		net:     net,
+		laddr:   laddr,
+		handler: handler,
+		accept:  accept,
+		closed:  closed,
+		conns:   make(map[*conn]bool),
+	}
+
+	tls := &TLSServer{
+		config: config,
+		Server: &s,
+	}
+	return tls
 }
 
 // Close stops listening on the TCP address.
@@ -148,7 +177,17 @@ func ListenAndServe(addr string,
 	return ListenAndServeNetwork("tcp", addr, handler, accept, closed)
 }
 
-// ListenAndServe creates a new server and binds to addr. The network net must be
+// ListenAndServeTLS creates a new TLS server and binds to addr configured on "tcp" network net.
+func ListenAndServeTLS(addr string,
+	handler func(conn Conn, cmd Command),
+	accept func(conn Conn) bool,
+	closed func(conn Conn, err error),
+	config *tls.Config,
+) error {
+	return ListenAndServeNetworkTLS("tcp", addr, handler, accept, closed, config)
+}
+
+// ListenAndServeNetwork creates a new server and binds to addr. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func ListenAndServeNetwork(
 	net, laddr string,
@@ -157,6 +196,18 @@ func ListenAndServeNetwork(
 	closed func(conn Conn, err error),
 ) error {
 	return NewServerNetwork(net, laddr, handler, accept, closed).ListenAndServe()
+}
+
+// ListenAndServeNetworkTLS creates a new TLS server and binds to addr. The network net must be
+// a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
+func ListenAndServeNetworkTLS(
+	net, laddr string,
+	handler func(conn Conn, cmd Command),
+	accept func(conn Conn) bool,
+	closed func(conn Conn, err error),
+	config *tls.Config,
+) error {
+	return NewServerNetworkTLS(net, laddr, handler, accept, closed, config).ListenAndServe()
 }
 
 // ListenServeAndSignal serves incoming connections and passes nil or error
@@ -172,6 +223,26 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 	if signal != nil {
 		signal <- nil
 	}
+	return listenServeAndSignal(s, ln)
+}
+
+// ListenServeAndSignal serves incoming connections and passes nil or error
+// when listening. signal can be nil.
+func (s *TLSServer) ListenServeAndSignal(signal chan error) error {
+	ln, err := tls.Listen(s.net, s.laddr, s.config)
+	if err != nil {
+		if signal != nil {
+			signal <- err
+		}
+		return err
+	}
+	if signal != nil {
+		signal <- nil
+	}
+	return listenServeAndSignal(s.Server, ln)
+}
+
+func listenServeAndSignal(s *Server, ln net.Listener) error {
 	s.mu.Lock()
 	s.ln = ln
 	s.mu.Unlock()
@@ -395,6 +466,12 @@ type Server struct {
 	conns   map[*conn]bool
 	ln      net.Listener
 	done    bool
+}
+
+// TLSServer defines a server for clients for managing client connections.
+type TLSServer struct {
+	*Server
+	config *tls.Config
 }
 
 // Writer allows for writing RESP messages.
