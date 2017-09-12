@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tidwall/redcon"
+	"github.com/chrisvdg/redcon"
 )
 
 var addr = ":6380"
