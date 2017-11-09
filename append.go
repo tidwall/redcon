@@ -229,6 +229,16 @@ func readTelnetCommand(packet []byte, argsbuf [][]byte) (
 	return false, args[:0], Telnet, packet, nil
 }
 
+// appendPrefix will append a "$3\r\n" style redis prefix for a message.
+func appendPrefix(b []byte, c byte, n int64) []byte {
+	if n >= 0 && n <= 9 {
+		return append(b, c, byte('0'+n), '\r', '\n')
+	}
+	b = append(b, c)
+	b = strconv.AppendInt(b, n, 10)
+	return append(b, '\r', '\n')
+}
+
 // AppendUint appends a Redis protocol uint64 to the input bytes.
 func AppendUint(b []byte, n uint64) []byte {
 	b = append(b, ':')
@@ -238,32 +248,24 @@ func AppendUint(b []byte, n uint64) []byte {
 
 // AppendInt appends a Redis protocol int64 to the input bytes.
 func AppendInt(b []byte, n int64) []byte {
-	b = append(b, ':')
-	b = strconv.AppendInt(b, n, 10)
-	return append(b, '\r', '\n')
+	return appendPrefix(b, ':', n)
 }
 
 // AppendArray appends a Redis protocol array to the input bytes.
 func AppendArray(b []byte, n int) []byte {
-	b = append(b, '*')
-	b = strconv.AppendInt(b, int64(n), 10)
-	return append(b, '\r', '\n')
+	return appendPrefix(b, '*', int64(n))
 }
 
 // AppendBulk appends a Redis protocol bulk byte slice to the input bytes.
 func AppendBulk(b []byte, bulk []byte) []byte {
-	b = append(b, '$')
-	b = strconv.AppendInt(b, int64(len(bulk)), 10)
-	b = append(b, '\r', '\n')
+	b = appendPrefix(b, '$', int64(len(bulk)))
 	b = append(b, bulk...)
 	return append(b, '\r', '\n')
 }
 
 // AppendBulkString appends a Redis protocol bulk string to the input bytes.
 func AppendBulkString(b []byte, bulk string) []byte {
-	b = append(b, '$')
-	b = strconv.AppendInt(b, int64(len(bulk)), 10)
-	b = append(b, '\r', '\n')
+	b = appendPrefix(b, '$', int64(len(bulk)))
 	b = append(b, bulk...)
 	return append(b, '\r', '\n')
 }
