@@ -178,6 +178,11 @@ func (s *Server) ListenAndServe() error {
 	return s.ListenServeAndSignal(nil)
 }
 
+// Addr returns server's listen address
+func (s *Server) Addr() net.Addr {
+	return s.ln.Addr()
+}
+
 // Close stops listening on the TCP address.
 // Already Accepted connections will be closed.
 func (s *TLSServer) Close() error {
@@ -247,10 +252,11 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 		}
 		return err
 	}
+	s.ln = ln
 	if signal != nil {
 		signal <- nil
 	}
-	return serve(s, ln)
+	return serve(s)
 }
 
 // ListenServeAndSignal serves incoming connections and passes nil or error
@@ -263,18 +269,16 @@ func (s *TLSServer) ListenServeAndSignal(signal chan error) error {
 		}
 		return err
 	}
+	s.ln = ln
 	if signal != nil {
 		signal <- nil
 	}
-	return serve(s.Server, ln)
+	return serve(s.Server)
 }
 
-func serve(s *Server, ln net.Listener) error {
-	s.mu.Lock()
-	s.ln = ln
-	s.mu.Unlock()
+func serve(s *Server) error {
 	defer func() {
-		ln.Close()
+		s.ln.Close()
 		func() {
 			s.mu.Lock()
 			defer s.mu.Unlock()
@@ -285,7 +289,7 @@ func serve(s *Server, ln net.Listener) error {
 		}()
 	}()
 	for {
-		lnconn, err := ln.Accept()
+		lnconn, err := s.ln.Accept()
 		if err != nil {
 			s.mu.Lock()
 			done := s.done
