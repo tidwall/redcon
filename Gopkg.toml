@@ -1,0 +1,7 @@
+[[constraint]]
+  name = "github.com/panjf2000/ants"
+  revision = "5bbeede0972156ea5b2be3dcf0d6219a63c5e404"
+
+[prune]
+  go-tests = true
+  unused-packages = true
