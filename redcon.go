@@ -106,12 +106,13 @@ func NewServer(addr string,
 
 // NewServerTLS returns a new Redcon TLS server configured on "tcp" network net.
 func NewServerTLS(addr string,
+	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) *TLSServer {
-	return NewServerNetworkTLS("tcp", addr, handler, accept, closed, config)
+	return NewServerNetworkTLS("tcp", addr, goPoolSize, handler, accept, closed, config)
 }
 
 // NewServerNetwork returns a new Redcon server. The network net must be
@@ -142,6 +143,7 @@ func NewServerNetwork(
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func NewServerNetworkTLS(
 	net, laddr string,
+	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
@@ -157,6 +159,7 @@ func NewServerNetworkTLS(
 		accept:  accept,
 		closed:  closed,
 		conns:   make(map[*conn]bool),
+		goPoolSize: goPoolSize,
 	}
 
 	tls := &TLSServer{
@@ -207,21 +210,23 @@ func (s *TLSServer) ListenAndServe() error {
 
 // ListenAndServe creates a new server and binds to addr configured on "tcp" network net.
 func ListenAndServe(addr string,
+	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) error {
-	return ListenAndServeNetwork("tcp", addr, handler, accept, closed)
+	return ListenAndServeNetwork("tcp", addr, goPoolSize, handler, accept, closed)
 }
 
 // ListenAndServeTLS creates a new TLS server and binds to addr configured on "tcp" network net.
 func ListenAndServeTLS(addr string,
+	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) error {
-	return ListenAndServeNetworkTLS("tcp", addr, handler, accept, closed, config)
+	return ListenAndServeNetworkTLS("tcp", addr, goPoolSize, handler, accept, closed, config)
 }
 
 // ListenAndServeNetwork creates a new server and binds to addr. The network net must be
@@ -239,12 +244,13 @@ func ListenAndServeNetwork(
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func ListenAndServeNetworkTLS(
 	net, laddr string,
+	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) error {
-	return NewServerNetworkTLS(net, laddr, handler, accept, closed, config).ListenAndServe()
+	return NewServerNetworkTLS(net, laddr, goPoolSize, handler, accept, closed, config).ListenAndServe()
 }
 
 // ListenServeAndSignal serves incoming connections and passes nil or error

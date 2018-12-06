@@ -218,7 +218,7 @@ func TestServerUnix(t *testing.T) {
 }
 
 func testServerNetwork(t *testing.T, network, laddr string) {
-	s := NewServerNetwork(network, laddr,
+	s := NewServerNetwork(network, laddr, 100,
 		func(conn Conn, cmd Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
@@ -259,7 +259,7 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 	}
 	go func() {
 		time.Sleep(time.Second / 4)
-		if err := ListenAndServeNetwork(network, laddr, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
+		if err := ListenAndServeNetwork(network, laddr, 100, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
 			t.Fatalf("expected an error, should not be able to listen on the same port")
 		}
 		time.Sleep(time.Second / 4)
