@@ -8,8 +8,6 @@ import (
 	"io"
 	"net"
 	"sync"
-
-	"github.com/panjf2000/ants"
 )
 
 var (
@@ -96,30 +94,27 @@ type Conn interface {
 
 // NewServer returns a new Redcon server configured on "tcp" network net.
 func NewServer(addr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) *Server {
-	return NewServerNetwork("tcp", addr, goPoolSize, handler, accept, closed)
+	return NewServerNetwork("tcp", addr, handler, accept, closed)
 }
 
 // NewServerTLS returns a new Redcon TLS server configured on "tcp" network net.
 func NewServerTLS(addr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) *TLSServer {
-	return NewServerNetworkTLS("tcp", addr, goPoolSize, handler, accept, closed, config)
+	return NewServerNetworkTLS("tcp", addr, handler, accept, closed, config)
 }
 
 // NewServerNetwork returns a new Redcon server. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func NewServerNetwork(
 	net, laddr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
@@ -134,7 +129,6 @@ func NewServerNetwork(
 		accept:  accept,
 		closed:  closed,
 		conns:   make(map[*conn]bool),
-		goPoolSize: goPoolSize,
 	}
 	return s
 }
@@ -143,7 +137,6 @@ func NewServerNetwork(
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func NewServerNetworkTLS(
 	net, laddr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
@@ -159,7 +152,6 @@ func NewServerNetworkTLS(
 		accept:  accept,
 		closed:  closed,
 		conns:   make(map[*conn]bool),
-		goPoolSize: goPoolSize,
 	}
 
 	tls := &TLSServer{
@@ -210,47 +202,44 @@ func (s *TLSServer) ListenAndServe() error {
 
 // ListenAndServe creates a new server and binds to addr configured on "tcp" network net.
 func ListenAndServe(addr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) error {
-	return ListenAndServeNetwork("tcp", addr, goPoolSize, handler, accept, closed)
+	return ListenAndServeNetwork("tcp", addr, handler, accept, closed)
 }
 
 // ListenAndServeTLS creates a new TLS server and binds to addr configured on "tcp" network net.
 func ListenAndServeTLS(addr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) error {
-	return ListenAndServeNetworkTLS("tcp", addr, goPoolSize, handler, accept, closed, config)
+	return ListenAndServeNetworkTLS("tcp", addr, handler, accept, closed, config)
 }
 
 // ListenAndServeNetwork creates a new server and binds to addr. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func ListenAndServeNetwork(
-	net, laddr string, goPoolSize int,
+	net, laddr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) error {
-	return NewServerNetwork(net, laddr, goPoolSize, handler, accept, closed).ListenAndServe()
+	return NewServerNetwork(net, laddr, handler, accept, closed).ListenAndServe()
 }
 
 // ListenAndServeNetworkTLS creates a new TLS server and binds to addr. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func ListenAndServeNetworkTLS(
 	net, laddr string,
-	goPoolSize int,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) error {
-	return NewServerNetworkTLS(net, laddr, goPoolSize, handler, accept, closed, config).ListenAndServe()
+	return NewServerNetworkTLS(net, laddr, handler, accept, closed, config).ListenAndServe()
 }
 
 // ListenServeAndSignal serves incoming connections and passes nil or error
@@ -288,11 +277,6 @@ func (s *TLSServer) ListenServeAndSignal(signal chan error) error {
 }
 
 func serve(s *Server) error {
-	pool, _ := ants.NewPoolWithFunc(s.goPoolSize, func(arg interface{}) {
-		c, _ := arg.(*conn)
-		handle(s, c)
-	})
-
 	defer func() {
 		s.ln.Close()
 		func() {
@@ -303,7 +287,6 @@ func serve(s *Server) error {
 			}
 			s.conns = nil
 		}()
-		pool.Release()
 	}()
 	for {
 		lnconn, err := s.ln.Accept()
@@ -332,7 +315,7 @@ func serve(s *Server) error {
 			c.Close()
 			continue
 		}
-		pool.Serve(c)
+		go handle(s, c)
 	}
 }
 
@@ -518,7 +501,6 @@ type Server struct {
 	conns   map[*conn]bool
 	ln      net.Listener
 	done    bool
-	goPoolSize int
 }
 
 // TLSServer defines a server for clients for managing client connections.

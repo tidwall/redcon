@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - "1.8.x"
+  - "1.9.x"
+  - "1.10.x"
+  - "1.11.x"
+  - master
+
+before_install:
+  - go get -t -v ./...
+
+script:
+  - go test -race -coverprofile=coverage.txt -covermode=atomic -v
+#  - go test -bench=. -benchmem=true -run=none ./...
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
