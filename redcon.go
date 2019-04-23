@@ -19,7 +19,7 @@ var (
 )
 
 var (
-	InitReaderBufferSize = 4096
+	InitReaderBufferSize = 40960
 )
 
 type errProtocol struct {
@@ -518,6 +518,17 @@ type Command struct {
 	Raw []byte
 	// Args is a series of arguments that make up the command.
 	Args [][]byte
+
+	marks []int
+}
+
+// GetArgs get args for zero allocations for args.
+func (c Command) GetArgs(i int) []byte {
+	if c.Args != nil {
+		return c.Args[i]
+	}
+	h := i * 2
+	return c.Raw[c.marks[h]:c.marks[h+1]]
 }
 
 // Server defines a server for clients for managing client connections.
@@ -756,7 +767,9 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 						wr.WriteArray(len(cmd.Args))
 						for i := range cmd.Args {
 							wr.WriteBulk(cmd.Args[i])
-							cmd.Args[i] = append([]byte(nil), cmd.Args[i]...)
+							arg := make([]byte, len(cmd.Args[i]))
+							copy(arg, cmd.Args[i])
+							cmd.Args[i] = arg
 						}
 						cmd.Raw = wr.b
 						cmds = append(cmds, cmd)
@@ -822,17 +835,15 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 						if rd.rd != nil {
 							// make a raw copy of the entire command when
 							// there's a underlying reader.
-							cmd.Raw = append([]byte(nil), b[:i+1]...)
+							raw := make([]byte, i+1)
+							copy(raw, b[:i+1])
+							cmd.Raw = raw
 						} else {
 							// just assign the slice
 							cmd.Raw = b[:i+1]
 						}
-						cmd.Args = make([][]byte, len(marks)/2)
-						// slice up the raw command into the args based on
-						// the recorded marks.
-						for h := 0; h < len(marks); h += 2 {
-							cmd.Args[h/2] = cmd.Raw[marks[h]:marks[h+1]]
-						}
+
+						cmd.marks = marks
 						cmds = append(cmds, cmd)
 						b = b[i+1:]
 						if len(b) > 0 {
