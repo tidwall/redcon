@@ -18,6 +18,10 @@ var (
 	errTooMuchData            = errors.New("too much data")
 )
 
+var (
+	InitReaderBufferSize = 4096
+)
+
 type errProtocol struct {
 	msg string
 }
@@ -632,8 +636,9 @@ type Reader struct {
 // NewReader returns a command reader which will read RESP or telnet commands.
 func NewReader(rd io.Reader) *Reader {
 	return &Reader{
-		rd:  rd,
-		buf: make([]byte, 4096),
+		rd:   rd,
+		cmds: make([]Command, 0, 50),
+		buf:  make([]byte, InitReaderBufferSize),
 	}
 }
 
@@ -661,10 +666,11 @@ func parseInt(b []byte) (int, bool) {
 }
 
 func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
-	var cmds []Command
+	var cmds = rd.cmds[:0]
 	b := rd.buf[rd.start:rd.end]
-	if rd.end-rd.start == 0 && len(rd.buf) > 4096 {
-		rd.buf = rd.buf[:4096]
+	if rd.end-rd.start == 0 && len(rd.buf) > InitReaderBufferSize {
+		//rd.buf = make([]byte, InitReaderBufferSize)
+		rd.buf = rd.buf[:InitReaderBufferSize]
 		rd.start = 0
 		rd.end = 0
 	}
