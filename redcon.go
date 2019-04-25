@@ -531,6 +531,15 @@ func (c Command) GetArgs(i int) []byte {
 	return c.Raw[c.marks[h]:c.marks[h+1]]
 }
 
+// GetArgCount get count of args.
+func (c Command) GetArgCount() int {
+	if c.Args != nil {
+		return len(c.Args)
+	}
+
+	return len(c.marks) / 2
+}
+
 // Server defines a server for clients for managing client connections.
 type Server struct {
 	mu      sync.Mutex
