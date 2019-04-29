@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 var (
@@ -517,9 +518,9 @@ type Command struct {
 	// Raw is a encoded RESP message.
 	Raw []byte
 	// Args is a series of arguments that make up the command.
-	Args [][]byte
-
+	Args  [][]byte
 	marks []int
+	Time  int64
 }
 
 // GetArgs get args for zero allocations for args.
@@ -686,6 +687,7 @@ func parseInt(b []byte) (int, bool) {
 }
 
 func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
+	start := time.Now().UnixNano()
 	var cmds = rd.cmds[:0]
 	b := rd.buf[rd.start:rd.end]
 	if rd.end-rd.start == 0 && len(rd.buf) > InitReaderBufferSize {
@@ -781,6 +783,7 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 							cmd.Args[i] = arg
 						}
 						cmd.Raw = wr.b
+						cmd.Time = start
 						cmds = append(cmds, cmd)
 					}
 					b = b[i+1:]
@@ -853,6 +856,7 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 						}
 
 						cmd.marks = marks
+						cmd.Time = start
 						cmds = append(cmds, cmd)
 						b = b[i+1:]
 						if len(b) > 0 {
