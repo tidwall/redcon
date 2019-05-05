@@ -523,6 +523,19 @@ type Command struct {
 	Time  int64
 }
 
+func (c Command) GetAllArgs() [][]byte {
+	if c.Args != nil {
+		return c.Args
+	}
+	n := len(c.marks) / 2
+	args := make([][]byte, n)
+	for i := 0; i < n; i++ {
+		args[i] = c.Raw[c.marks[i*2]:c.marks[i*2+1]]
+	}
+	c.Args = args
+	return args
+}
+
 // GetArgs get args for zero allocations for args.
 func (c Command) GetArgs(i int) []byte {
 	if c.Args != nil {
