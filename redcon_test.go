@@ -218,7 +218,7 @@ func TestServerUnix(t *testing.T) {
 }
 
 func testServerNetwork(t *testing.T, network, laddr string) {
-	s := NewServerNetwork(network, laddr, 100,
+	s := NewServerNetwork(network, laddr,
 		func(conn Conn, cmd Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
@@ -253,13 +253,23 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 		func(conn Conn, err error) {
 			//log.Printf("closed: %s [%v]", conn.RemoteAddr(), err)
 		},
+		func(key []byte) int {
+			return 0
+		},
+		50, 30, 20,
+		map[int][]string{
+			0: []string{"SET", "GET", "DEL"},
+		},
 	)
 	if err := s.Close(); err == nil {
 		t.Fatalf("expected an error, should not be able to close before serving")
 	}
 	go func() {
 		time.Sleep(time.Second / 4)
-		if err := ListenAndServeNetwork(network, laddr, 100, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
+		if err := ListenAndServeNetwork(
+			network, laddr, func(conn Conn, cmd Command) {}, nil, nil,
+			func(key []byte) int { return 0 }, 50, 30, 20,
+			map[int][]string{ 0: []string{"SET", "GET", "DEL"} }); err == nil {
 			t.Fatalf("expected an error, should not be able to listen on the same port")
 		}
 		time.Sleep(time.Second / 4)
