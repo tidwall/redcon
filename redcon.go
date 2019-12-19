@@ -44,8 +44,10 @@ type Conn interface {
 	WriteBulkString(bulk string)
 	// WriteInt writes an integer to the client.
 	WriteInt(num int)
-	// WriteInt64 writes a 64-but signed integer to the client.
+	// WriteInt64 writes a 64-bit signed integer to the client.
 	WriteInt64(num int64)
+	// WriteUint64 writes a 64-bit unsigned integer to the client.
+	WriteUint64(num uint64)
 	// WriteArray writes an array header. You must then write additional
 	// sub-responses to the client to complete the response.
 	// For example to write two strings:
@@ -432,6 +434,7 @@ func (c *conn) WriteBulk(bulk []byte)       { c.wr.WriteBulk(bulk) }
 func (c *conn) WriteBulkString(bulk string) { c.wr.WriteBulkString(bulk) }
 func (c *conn) WriteInt(num int)            { c.wr.WriteInt(num) }
 func (c *conn) WriteInt64(num int64)        { c.wr.WriteInt64(num) }
+func (c *conn) WriteUint64(num uint64)      { c.wr.WriteUint64(num) }
 func (c *conn) WriteError(msg string)       { c.wr.WriteError(msg) }
 func (c *conn) WriteArray(count int)        { c.wr.WriteArray(count) }
 func (c *conn) WriteNull()                  { c.wr.WriteNull() }
@@ -615,6 +618,11 @@ func (w *Writer) WriteInt(num int) {
 // WriteInt64 writes a 64-bit signed integer to the client.
 func (w *Writer) WriteInt64(num int64) {
 	w.b = AppendInt(w.b, num)
+}
+
+// WriteUint64 writes a 64-bit unsigned integer to the client.
+func (w *Writer) WriteUint64(num uint64) {
+	w.b = AppendUint(w.b, num)
 }
 
 // WriteRaw writes raw data to the client.
