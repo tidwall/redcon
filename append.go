@@ -312,3 +312,39 @@ func AppendTile38(b []byte, data []byte) []byte {
 func AppendNull(b []byte) []byte {
 	return append(b, '$', '-', '1', '\r', '\n')
 }
+
+// AppendBulkFloat appends a float64, as bulk bytes.
+func AppendBulkFloat(b []byte, f float64) []byte {
+	mark1 := len(b)
+	b = strconv.AppendFloat(b, f, 'f', -1, 64)
+	mark2 := len(b)
+	b = AppendBulk(b, b[mark1:mark2])
+	mark3 := len(b)
+	copy(b[mark1:], b[mark2:])
+	b = b[:mark1+(mark3-mark2)]
+	return b
+}
+
+// AppendBulkInt appends an int64, as bulk bytes.
+func AppendBulkInt(b []byte, x int64) []byte {
+	mark1 := len(b)
+	b = strconv.AppendInt(b, x, 10)
+	mark2 := len(b)
+	b = AppendBulk(b, b[mark1:mark2])
+	mark3 := len(b)
+	copy(b[mark1:], b[mark2:])
+	b = b[:mark1+(mark3-mark2)]
+	return b
+}
+
+// AppendBulkUint appends an uint64, as bulk bytes.
+func AppendBulkUint(b []byte, x uint64) []byte {
+	mark1 := len(b)
+	b = strconv.AppendUint(b, x, 10)
+	mark2 := len(b)
+	b = AppendBulk(b, b[mark1:mark2])
+	mark3 := len(b)
+	copy(b[mark1:], b[mark2:])
+	b = b[:mark1+(mark3-mark2)]
+	return b
+}

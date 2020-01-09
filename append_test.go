@@ -92,3 +92,36 @@ func TestNextCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestAppendBulkFloat(t *testing.T) {
+	var b []byte
+	b = AppendString(b, "HELLO")
+	b = AppendBulkFloat(b, 9.123192839)
+	b = AppendString(b, "HELLO")
+	exp := "+HELLO\r\n$11\r\n9.123192839\r\n+HELLO\r\n"
+	if string(b) != exp {
+		t.Fatalf("expected '%s', got '%s'", exp, b)
+	}
+}
+
+func TestAppendBulkInt(t *testing.T) {
+	var b []byte
+	b = AppendString(b, "HELLO")
+	b = AppendBulkInt(b, -9182739137)
+	b = AppendString(b, "HELLO")
+	exp := "+HELLO\r\n$11\r\n-9182739137\r\n+HELLO\r\n"
+	if string(b) != exp {
+		t.Fatalf("expected '%s', got '%s'", exp, b)
+	}
+}
+
+func TestAppendBulkUint(t *testing.T) {
+	var b []byte
+	b = AppendString(b, "HELLO")
+	b = AppendBulkInt(b, 91827391370)
+	b = AppendString(b, "HELLO")
+	exp := "+HELLO\r\n$11\r\n91827391370\r\n+HELLO\r\n"
+	if string(b) != exp {
+		t.Fatalf("expected '%s', got '%s'", exp, b)
+	}
+}
