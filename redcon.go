@@ -327,6 +327,9 @@ func serve(s *Server) error {
 			if done {
 				return nil
 			}
+			if s.AcceptError != nil {
+				s.AcceptError(err)
+			}
 			continue
 		}
 		c := &conn{
@@ -532,6 +535,9 @@ type Server struct {
 	conns   map[*conn]bool
 	ln      net.Listener
 	done    bool
+
+	// AcceptError is an optional function used to handle Accept errors.
+	AcceptError func(err error)
 }
 
 // TLSServer defines a server for clients for managing client connections.
