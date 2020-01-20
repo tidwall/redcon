@@ -327,7 +327,7 @@ func serve(s *Server) error {
 			if done {
 				return nil
 			}
-			return err
+			continue
 		}
 		c := &conn{
 			conn: lnconn,
