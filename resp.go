@@ -122,6 +122,7 @@ func ReadNextRESP(b []byte) (n int, resp RESP) {
 			return 0, RESP{}
 		}
 		tn += rn
+		sdata = sdata[rn:]
 	}
 	resp.Data = b[i : i+tn]
 	resp.Raw = b[0 : i+tn]
