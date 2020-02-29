@@ -497,9 +497,6 @@ func (dc *detachedConn) Flush() error {
 
 // ReadCommand read the next command from the client.
 func (dc *detachedConn) ReadCommand() (Command, error) {
-	if dc.closed {
-		return Command{}, errors.New("closed")
-	}
 	if len(dc.cmds) > 0 {
 		cmd := dc.cmds[0]
 		if len(dc.cmds) == 1 {
