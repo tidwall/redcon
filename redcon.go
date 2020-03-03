@@ -60,6 +60,8 @@ type Conn interface {
 	WriteNull()
 	// WriteRaw writes raw data to the client.
 	WriteRaw(data []byte)
+	// WriteAny writes any type to the client.
+	WriteAny(any interface{})
 	// Context returns a user-defined context
 	Context() interface{}
 	// SetContext sets a user-defined context
@@ -442,6 +444,7 @@ func (c *conn) WriteError(msg string)       { c.wr.WriteError(msg) }
 func (c *conn) WriteArray(count int)        { c.wr.WriteArray(count) }
 func (c *conn) WriteNull()                  { c.wr.WriteNull() }
 func (c *conn) WriteRaw(data []byte)        { c.wr.WriteRaw(data) }
+func (c *conn) WriteAny(v interface{})      { c.wr.WriteAny(v) }
 func (c *conn) RemoteAddr() string          { return c.addr }
 func (c *conn) ReadPipeline() []Command {
 	cmds := c.cmds
@@ -631,6 +634,11 @@ func (w *Writer) WriteUint64(num uint64) {
 // WriteRaw writes raw data to the client.
 func (w *Writer) WriteRaw(data []byte) {
 	w.b = append(w.b, data...)
+}
+
+// WriteAny writes any type to client.
+func (w *Writer) WriteAny(v interface{}) {
+	w.b = AppendAny(w.b, v)
 }
 
 // Reader represent a reader for RESP or telnet commands.

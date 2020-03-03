@@ -1,6 +1,9 @@
 package redcon
 
 import (
+	"fmt"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -347,4 +350,101 @@ func AppendBulkUint(b []byte, x uint64) []byte {
 	copy(b[mark1:], b[mark2:])
 	b = b[:mark1+(mark3-mark2)]
 	return b
+}
+
+// AppendAny appends any type to valid Redis type
+func AppendAny(b []byte, v interface{}) []byte {
+	switch v := v.(type) {
+	case nil:
+		b = AppendNull(b)
+	case error:
+		b = AppendError(b, "ERR "+v.Error())
+	case string:
+		b = AppendBulkString(b, v)
+	case []byte:
+		b = AppendBulk(b, v)
+	case bool:
+		if v {
+			b = AppendInt(b, 1)
+		} else {
+			b = AppendInt(b, 0)
+		}
+	case int:
+		b = AppendInt(b, int64(v))
+	case int8:
+		b = AppendInt(b, int64(v))
+	case int16:
+		b = AppendInt(b, int64(v))
+	case int32:
+		b = AppendInt(b, int64(v))
+	case int64:
+		b = AppendInt(b, int64(v))
+	case uint:
+		b = AppendUint(b, uint64(v))
+	case uint8:
+		b = AppendUint(b, uint64(v))
+	case uint16:
+		b = AppendUint(b, uint64(v))
+	case uint32:
+		b = AppendUint(b, uint64(v))
+	case uint64:
+		b = AppendUint(b, uint64(v))
+	case float32:
+		b = AppendBulkFloat(b, float64(v))
+	case float64:
+		b = AppendBulkFloat(b, float64(v))
+	default:
+		vv := reflect.ValueOf(v)
+		switch vv.Kind() {
+		case reflect.Slice:
+			n := vv.Len()
+			b = AppendArray(b, n)
+			for i := 0; i < n; i++ {
+				b = AppendAny(b, vv.Index(i).Interface())
+			}
+		case reflect.Map:
+			n := vv.Len()
+			b = AppendArray(b, n*2)
+			var i int
+			var strKey bool
+			var strsKeyItems []strKeyItem
+
+			iter := vv.MapRange()
+			for iter.Next() {
+				key := iter.Key().Interface()
+				if i == 0 {
+					if _, ok := key.(string); ok {
+						strKey = true
+						strsKeyItems = make([]strKeyItem, n)
+					}
+				}
+				if strKey {
+					strsKeyItems[i] = strKeyItem{
+						key.(string), iter.Value().Interface(),
+					}
+				} else {
+					b = AppendAny(b, key)
+					b = AppendAny(b, iter.Value().Interface())
+				}
+				i++
+			}
+			if strKey {
+				sort.Slice(strsKeyItems, func(i, j int) bool {
+					return strsKeyItems[i].key < strsKeyItems[j].key
+				})
+				for _, item := range strsKeyItems {
+					b = AppendBulkString(b, item.key)
+					b = AppendAny(b, item.value)
+				}
+			}
+		default:
+			b = AppendBulkString(b, fmt.Sprint(v))
+		}
+	}
+	return b
+}
+
+type strKeyItem struct {
+	key   string
+	value interface{}
 }
