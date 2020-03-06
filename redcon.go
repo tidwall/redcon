@@ -61,12 +61,16 @@ type Conn interface {
 	// WriteRaw writes raw data to the client.
 	WriteRaw(data []byte)
 	// WriteAny writes any type to the client.
+	//   nil             -> null
+	//   error           -> error (adds "ERR " when first word is not uppercase)
 	//   string          -> bulk-string
 	//   numbers         -> bulk-string
 	//   []byte          -> bulk-string
-	//   bool            -> number (0 or 1)
+	//   bool            -> bulk-string ("0" or "1")
 	//   slice           -> array
 	//   map             -> array with key/value pairs
+	//   SimpleString    -> string
+	//   SimpleInt       -> integer
 	//   everything-else -> bulk-string representation using fmt.Sprint()
 	WriteAny(any interface{})
 	// Context returns a user-defined context
@@ -644,12 +648,16 @@ func (w *Writer) WriteRaw(data []byte) {
 }
 
 // WriteAny writes any type to client.
+//   nil             -> null
+//   error           -> error (adds "ERR " when first word is not uppercase)
 //   string          -> bulk-string
 //   numbers         -> bulk-string
 //   []byte          -> bulk-string
-//   bool            -> number (0 or 1)
+//   bool            -> bulk-string ("0" or "1")
 //   slice           -> array
 //   map             -> array with key/value pairs
+//   SimpleString    -> string
+//   SimpleInt       -> integer
 //   everything-else -> bulk-string representation using fmt.Sprint()
 func (w *Writer) WriteAny(v interface{}) {
 	w.b = AppendAny(w.b, v)

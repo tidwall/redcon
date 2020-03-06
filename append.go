@@ -331,29 +331,62 @@ func AppendBulkUint(dst []byte, x uint64) []byte {
 	return AppendBulk(dst, strconv.AppendUint(nil, x, 10))
 }
 
-// AppendAny appends any type to valid Redis type
+func prefixERRIfNeeded(msg string) string {
+	msg = strings.TrimSpace(msg)
+	firstWord := strings.Split(msg, " ")[0]
+	addERR := len(firstWord) == 0
+	for i := 0; i < len(firstWord); i++ {
+		if firstWord[i] < 'A' || firstWord[i] > 'Z' {
+			addERR = true
+			break
+		}
+	}
+	if addERR {
+		msg = strings.TrimSpace("ERR " + msg)
+	}
+	return msg
+}
+
+// SimpleString is for representing a non-bulk representation of a string
+// from an *Any call.
+type SimpleString string
+
+// SimpleInt is for representing a non-bulk representation of a int
+// from an *Any call.
+type SimpleInt int
+
+// AppendAny appends any type to valid Redis type.
+//   nil             -> null
+//   error           -> error (adds "ERR " when first word is not uppercase)
 //   string          -> bulk-string
 //   numbers         -> bulk-string
 //   []byte          -> bulk-string
-//   bool            -> number (0 or 1)
+//   bool            -> bulk-string ("0" or "1")
 //   slice           -> array
 //   map             -> array with key/value pairs
+//   SimpleString    -> string
+//   SimpleInt       -> integer
 //   everything-else -> bulk-string representation using fmt.Sprint()
 func AppendAny(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
+	case SimpleString:
+		b = AppendString(b, string(v))
+	case SimpleInt:
+		b = AppendInt(b, int64(v))
 	case nil:
 		b = AppendNull(b)
 	case error:
-		b = AppendError(b, "ERR "+v.Error())
+		b = AppendError(b, prefixERRIfNeeded(v.Error()))
+
 	case string:
 		b = AppendBulkString(b, v)
 	case []byte:
 		b = AppendBulk(b, v)
 	case bool:
 		if v {
-			b = AppendInt(b, 1)
+			b = AppendBulkString(b, "1")
 		} else {
-			b = AppendInt(b, 0)
+			b = AppendBulkString(b, "0")
 		}
 	case int:
 		b = AppendBulkInt(b, int64(v))
