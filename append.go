@@ -317,42 +317,28 @@ func AppendNull(b []byte) []byte {
 }
 
 // AppendBulkFloat appends a float64, as bulk bytes.
-func AppendBulkFloat(b []byte, f float64) []byte {
-	mark1 := len(b)
-	b = strconv.AppendFloat(b, f, 'f', -1, 64)
-	mark2 := len(b)
-	b = AppendBulk(b, b[mark1:mark2])
-	mark3 := len(b)
-	copy(b[mark1:], b[mark2:])
-	b = b[:mark1+(mark3-mark2)]
-	return b
+func AppendBulkFloat(dst []byte, f float64) []byte {
+	return AppendBulk(dst, strconv.AppendFloat(nil, f, 'f', -1, 64))
 }
 
 // AppendBulkInt appends an int64, as bulk bytes.
-func AppendBulkInt(b []byte, x int64) []byte {
-	mark1 := len(b)
-	b = strconv.AppendInt(b, x, 10)
-	mark2 := len(b)
-	b = AppendBulk(b, b[mark1:mark2])
-	mark3 := len(b)
-	copy(b[mark1:], b[mark2:])
-	b = b[:mark1+(mark3-mark2)]
-	return b
+func AppendBulkInt(dst []byte, x int64) []byte {
+	return AppendBulk(dst, strconv.AppendInt(nil, x, 10))
 }
 
 // AppendBulkUint appends an uint64, as bulk bytes.
-func AppendBulkUint(b []byte, x uint64) []byte {
-	mark1 := len(b)
-	b = strconv.AppendUint(b, x, 10)
-	mark2 := len(b)
-	b = AppendBulk(b, b[mark1:mark2])
-	mark3 := len(b)
-	copy(b[mark1:], b[mark2:])
-	b = b[:mark1+(mark3-mark2)]
-	return b
+func AppendBulkUint(dst []byte, x uint64) []byte {
+	return AppendBulk(dst, strconv.AppendUint(nil, x, 10))
 }
 
 // AppendAny appends any type to valid Redis type
+//   string          -> bulk-string
+//   numbers         -> bulk-string
+//   []byte          -> bulk-string
+//   bool            -> number (0 or 1)
+//   slice           -> array
+//   map             -> array with key/value pairs
+//   everything-else -> bulk-string representation using fmt.Sprint()
 func AppendAny(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
 	case nil:
@@ -370,25 +356,25 @@ func AppendAny(b []byte, v interface{}) []byte {
 			b = AppendInt(b, 0)
 		}
 	case int:
-		b = AppendInt(b, int64(v))
+		b = AppendBulkInt(b, int64(v))
 	case int8:
-		b = AppendInt(b, int64(v))
+		b = AppendBulkInt(b, int64(v))
 	case int16:
-		b = AppendInt(b, int64(v))
+		b = AppendBulkInt(b, int64(v))
 	case int32:
-		b = AppendInt(b, int64(v))
+		b = AppendBulkInt(b, int64(v))
 	case int64:
-		b = AppendInt(b, int64(v))
+		b = AppendBulkInt(b, int64(v))
 	case uint:
-		b = AppendUint(b, uint64(v))
+		b = AppendBulkUint(b, uint64(v))
 	case uint8:
-		b = AppendUint(b, uint64(v))
+		b = AppendBulkUint(b, uint64(v))
 	case uint16:
-		b = AppendUint(b, uint64(v))
+		b = AppendBulkUint(b, uint64(v))
 	case uint32:
-		b = AppendUint(b, uint64(v))
+		b = AppendBulkUint(b, uint64(v))
 	case uint64:
-		b = AppendUint(b, uint64(v))
+		b = AppendBulkUint(b, uint64(v))
 	case float32:
 		b = AppendBulkFloat(b, float64(v))
 	case float64:
