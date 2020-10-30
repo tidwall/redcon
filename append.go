@@ -355,6 +355,13 @@ type SimpleString string
 // from an *Any call.
 type SimpleInt int
 
+// Marshaler is the interface implemented by types that
+// can marshal themselves into a Redis response type from an *Any call.
+// The return value is not check for validity.
+type Marshaler interface {
+	MarshalRESP() []byte
+}
+
 // AppendAny appends any type to valid Redis type.
 //   nil             -> null
 //   error           -> error (adds "ERR " when first word is not uppercase)
@@ -366,6 +373,7 @@ type SimpleInt int
 //   map             -> array with key/value pairs
 //   SimpleString    -> string
 //   SimpleInt       -> integer
+//   Marshaler       -> raw bytes
 //   everything-else -> bulk-string representation using fmt.Sprint()
 func AppendAny(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
@@ -377,7 +385,6 @@ func AppendAny(b []byte, v interface{}) []byte {
 		b = AppendNull(b)
 	case error:
 		b = AppendError(b, prefixERRIfNeeded(v.Error()))
-
 	case string:
 		b = AppendBulkString(b, v)
 	case []byte:
@@ -412,6 +419,8 @@ func AppendAny(b []byte, v interface{}) []byte {
 		b = AppendBulkFloat(b, float64(v))
 	case float64:
 		b = AppendBulkFloat(b, float64(v))
+	case Marshaler:
+		b = append(b, v.MarshalRESP()...)
 	default:
 		vv := reflect.ValueOf(v)
 		switch vv.Kind() {
