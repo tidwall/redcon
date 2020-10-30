@@ -13,12 +13,33 @@ var addr = ":6380"
 func main() {
 	var mu sync.RWMutex
 	var items = make(map[string][]byte)
+	var ps redcon.PubSub
 	go log.Printf("started server at %s", addr)
 	err := redcon.ListenAndServe(addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
 				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
+			case "publish":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				count := ps.Publish(string(cmd.Args[1]), string(cmd.Args[2]))
+				conn.WriteInt(count)
+			case "subscribe", "psubscribe":
+				if len(cmd.Args) < 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				command := strings.ToLower(string(cmd.Args[0]))
+				for i := 1; i < len(cmd.Args); i++ {
+					if command == "psubscribe" {
+						ps.Psubscribe(conn, string(cmd.Args[i]))
+					} else {
+						ps.Subscribe(conn, string(cmd.Args[i]))
+					}
+				}
 			case "detach":
 				hconn := conn.Detach()
 				log.Printf("connection has been detached")
@@ -27,7 +48,6 @@ func main() {
 					hconn.WriteString("OK")
 					hconn.Flush()
 				}()
-				return
 			case "ping":
 				conn.WriteString("PONG")
 			case "quit":
