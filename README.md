@@ -36,10 +36,10 @@ Here's a full example of a Redis clone that accepts:
 - SET key value
 - GET key
 - DEL key
-- PUBLISH channel message
-- (P)SUBSCRIBE channel
 - PING
 - QUIT
+- PUBLISH channel message
+- SUBSCRIBE channel
 
 You can run this example from a terminal:
 
@@ -70,40 +70,6 @@ func main() {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
 				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
-			case "publish":
-				// Publish to all pub/sub subscribers and return the number of
-				// messages that were sent.
-				if len(cmd.Args) != 3 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
-					return
-				}
-				count := ps.Publish(string(cmd.Args[1]), string(cmd.Args[2]))
-				conn.WriteInt(count)
-			case "subscribe", "psubscribe":
-				// Subscribe to a pub/sub channel. The `Psubscribe` and 
-				// `Subscribe` operations will detach the connection from the 
-				// event handler and manage all network I/O for this connection
-				// in the background.
-				if len(cmd.Args) < 2 {
-					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
-					return
-				}
-				command := strings.ToLower(string(cmd.Args[0]))
-				for i := 1; i < len(cmd.Args); i++ {
-					if command == "psubscribe" {
-						ps.Psubscribe(conn, string(cmd.Args[i]))
-					} else {
-						ps.Subscribe(conn, string(cmd.Args[i]))
-					}
-				}
-			case "detach":
-				hconn := conn.Detach()
-				log.Printf("connection has been detached")
-				go func() {
-					defer hconn.Close()
-					hconn.WriteString("OK")
-					hconn.Flush()
-				}()
 			case "ping":
 				conn.WriteString("PONG")
 			case "quit":
@@ -144,6 +110,25 @@ func main() {
 					conn.WriteInt(0)
 				} else {
 					conn.WriteInt(1)
+				}
+			case "publish":
+				if len(cmd.Args) != 3 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				conn.WriteInt(ps.Publish(string(cmd.Args[1]), string(cmd.Args[2])))
+			case "subscribe", "psubscribe":
+				if len(cmd.Args) < 2 {
+					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+					return
+				}
+				command := strings.ToLower(string(cmd.Args[0]))
+				for i := 1; i < len(cmd.Args); i++ {
+					if command == "psubscribe" {
+						ps.Psubscribe(conn, string(cmd.Args[i]))
+					} else {
+						ps.Subscribe(conn, string(cmd.Args[i]))
+					}
 				}
 			}
 		},
