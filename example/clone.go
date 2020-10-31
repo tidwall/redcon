@@ -21,6 +21,8 @@ func main() {
 			default:
 				conn.WriteError("ERR unknown command '" + string(cmd.Args[0]) + "'")
 			case "publish":
+				// Publish to all pub/sub subscribers and return the number of
+				// messages that were sent.
 				if len(cmd.Args) != 3 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 					return
@@ -28,6 +30,10 @@ func main() {
 				count := ps.Publish(string(cmd.Args[1]), string(cmd.Args[2]))
 				conn.WriteInt(count)
 			case "subscribe", "psubscribe":
+				// Subscribe to a pub/sub channel. The `Psubscribe` and
+				// `Subscribe` operations will detach the connection from the
+				// event handler and manage all network I/O for this connection
+				// in the background.
 				if len(cmd.Args) < 2 {
 					conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
 					return
@@ -92,12 +98,12 @@ func main() {
 			}
 		},
 		func(conn redcon.Conn) bool {
-			// use this function to accept or deny the connection.
+			// Use this function to accept or deny the connection.
 			// log.Printf("accept: %s", conn.RemoteAddr())
 			return true
 		},
 		func(conn redcon.Conn, err error) {
-			// this is called when the connection has been closed
+			// This is called when the connection has been closed
 			// log.Printf("closed: %s, err: %v", conn.RemoteAddr(), err)
 		},
 	)
