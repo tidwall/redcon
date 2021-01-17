@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tidwall/redcon"
 )
@@ -15,7 +16,8 @@ func main() {
 	var items = make(map[string][]byte)
 	var ps redcon.PubSub
 	go log.Printf("started server at %s", addr)
-	err := redcon.ListenAndServe(addr,
+
+	s := redcon.NewServer(addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
@@ -95,6 +97,12 @@ func main() {
 				} else {
 					conn.WriteInt(1)
 				}
+			case "config":
+				// This simple (blank) response is only here to allow for the
+				// redis-benchmark command to work with this example.
+				conn.WriteArray(2)
+				conn.WriteBulk(cmd.Args[2])
+				conn.WriteBulkString("")
 			}
 		},
 		func(conn redcon.Conn) bool {
@@ -107,6 +115,8 @@ func main() {
 			// log.Printf("closed: %s, err: %v", conn.RemoteAddr(), err)
 		},
 	)
+	s.SetIdleClose(time.Second * 5)
+	err := s.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
