@@ -4,7 +4,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/tidwall/redcon"
 )
@@ -17,7 +16,7 @@ func main() {
 	var ps redcon.PubSub
 	go log.Printf("started server at %s", addr)
 
-	s := redcon.NewServer(addr,
+	err := redcon.ListenAndServe(addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
@@ -115,8 +114,6 @@ func main() {
 			// log.Printf("closed: %s, err: %v", conn.RemoteAddr(), err)
 		},
 	)
-	s.SetIdleClose(time.Second * 5)
-	err := s.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
