@@ -8,8 +8,6 @@
 
 <p align="center">Fast Redis compatible server framework for Go</p>
 
-Redcon is a custom Redis server framework for Go that is fast and simple to use.
-
 Features
 --------
 - Create a [Fast](#benchmarks) custom Redis compatible server in Go
