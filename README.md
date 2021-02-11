@@ -6,7 +6,7 @@
 <a href="https://godoc.org/github.com/tidwall/redcon"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
 </p>
 
-<p align="center">Fast Redis compatible server framework for Go</p>
+<p align="center">Redis compatible server framework for Go</p>
 
 Features
 --------
