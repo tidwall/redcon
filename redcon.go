@@ -924,6 +924,22 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 	return rd.readCommands(leftover)
 }
 
+// ReadCommands reads the next pipeline commands.
+func (rd *Reader) ReadCommands() ([]Command, error) {
+	for {
+		if len(rd.cmds) > 0 {
+			cmds := rd.cmds
+			rd.cmds = nil
+			return cmds, nil
+		}
+		cmds, err := rd.readCommands(nil)
+		if err != nil {
+			return []Command{}, err
+		}
+		rd.cmds = cmds
+	}
+}
+
 // ReadCommand reads the next command.
 func (rd *Reader) ReadCommand() (Command, error) {
 	if len(rd.cmds) > 0 {
