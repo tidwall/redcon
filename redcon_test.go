@@ -200,14 +200,14 @@ func TestRandomCommands(t *testing.T) {
 		cnt++
 	}
 	if false {
-		dur := time.Now().Sub(start)
+		dur := time.Since(start)
 		fmt.Printf("%d commands in %s - %.0f ops/sec\n", cnt, dur, float64(cnt)/(float64(dur)/float64(time.Second)))
 	}
 }
-func testDetached(t *testing.T, conn DetachedConn) {
+func testDetached(conn DetachedConn) {
 	conn.WriteString("DETACHED")
 	if err := conn.Flush(); err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 }
 func TestServerTCP(t *testing.T) {
@@ -231,7 +231,7 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 				conn.WriteString("OK")
 				conn.Close()
 			case "detach":
-				go testDetached(t, conn.Detach())
+				go testDetached(conn.Detach())
 			case "int":
 				conn.WriteInt(100)
 			case "bulk":
@@ -262,17 +262,17 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 	go func() {
 		time.Sleep(time.Second / 4)
 		if err := ListenAndServeNetwork(network, laddr, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
-			t.Fatalf("expected an error, should not be able to listen on the same port")
+			panic("expected an error, should not be able to listen on the same port")
 		}
 		time.Sleep(time.Second / 4)
 
 		err := s.Close()
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		err = s.Close()
 		if err == nil {
-			t.Fatalf("expected an error")
+			panic("expected an error")
 		}
 	}()
 	done := make(chan bool)
@@ -283,11 +283,11 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 		}()
 		err := <-signal
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		c, err := net.Dial(network, laddr)
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		defer c.Close()
 		do := func(cmd string) (string, error) {
@@ -301,65 +301,65 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 		}
 		res, err := do("PING\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "+PONG\r\n" {
-			t.Fatalf("expecting '+PONG\r\n', got '%v'", res)
+			panic(fmt.Sprintf("expecting '+PONG\r\n', got '%v'", res))
 		}
 		res, err = do("BULK\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "$4\r\nbulk\r\n" {
-			t.Fatalf("expecting bulk, got '%v'", res)
+			panic(fmt.Sprintf("expecting bulk, got '%v'", res))
 		}
 		res, err = do("BULKBYTES\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "$9\r\nbulkbytes\r\n" {
-			t.Fatalf("expecting bulkbytes, got '%v'", res)
+			panic(fmt.Sprintf("expecting bulkbytes, got '%v'", res))
 		}
 		res, err = do("INT\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != ":100\r\n" {
-			t.Fatalf("expecting int, got '%v'", res)
+			panic(fmt.Sprintf("expecting int, got '%v'", res))
 		}
 		res, err = do("NULL\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "$-1\r\n" {
-			t.Fatalf("expecting nul, got '%v'", res)
+			panic(fmt.Sprintf("expecting nul, got '%v'", res))
 		}
 		res, err = do("ARRAY\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "*2\r\n:99\r\n+Hi!\r\n" {
-			t.Fatalf("expecting array, got '%v'", res)
+			panic(fmt.Sprintf("expecting array, got '%v'", res))
 		}
 		res, err = do("ERR\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "-ERR error\r\n" {
-			t.Fatalf("expecting array, got '%v'", res)
+			panic(fmt.Sprintf("expecting array, got '%v'", res))
 		}
 		res, err = do("DETACH\r\n")
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 		if res != "+DETACHED\r\n" {
-			t.Fatalf("expecting string, got '%v'", res)
+			panic(fmt.Sprintf("expecting string, got '%v'", res))
 		}
 	}()
 	go func() {
 		err := s.ListenServeAndSignal(signal)
 		if err != nil {
-			t.Fatal(err)
+			panic(err)
 		}
 	}()
 	<-done
@@ -432,12 +432,12 @@ func TestReaderRespRandom(t *testing.T) {
 	for h := 0; h < 10000; h++ {
 		var rawargs [][]string
 		for i := 0; i < 100; i++ {
-			var args []string
+			// var args []string
 			n := int(rand.Int() % 16)
 			for j := 0; j < n; j++ {
 				arg := make([]byte, rand.Int()%512)
 				rand.Read(arg)
-				args = append(args, string(arg))
+				// args = append(args, string(arg))
 			}
 		}
 		rawcmds := testMakeRawCommands(rawargs)
@@ -593,7 +593,7 @@ func TestPubSub(t *testing.T) {
 				ps.Publish(channel, message)
 			}
 		}()
-		t.Fatal(ListenAndServe(addr, func(conn Conn, cmd Command) {
+		panic(ListenAndServe(addr, func(conn Conn, cmd Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
 				conn.WriteError("ERR unknown command '" +
