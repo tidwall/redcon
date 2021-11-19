@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/tidwall/redcon"
+	"github.com/nathanhack/redcon"
 )
 
 var addr = ":6380"

@@ -4,7 +4,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/tidwall/redcon"
+	"github.com/nathanhack/redcon"
 )
 
 type Handler struct {
