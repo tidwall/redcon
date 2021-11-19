@@ -3,6 +3,7 @@ package redcon
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ var (
 	errDetached               = errors.New("detached")
 	errIncompleteCommand      = errors.New("incomplete command")
 	errTooMuchData            = errors.New("too much data")
+	errContextDone            = errors.New("context done")
 )
 
 type errProtocol struct {
@@ -114,27 +116,31 @@ type Conn interface {
 }
 
 // NewServer returns a new Redcon server configured on "tcp" network net.
-func NewServer(addr string,
+func NewServer(
+	ctx context.Context,
+	addr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) *Server {
-	return NewServerNetwork("tcp", addr, handler, accept, closed)
+	return NewServerNetwork(ctx, "tcp", addr, handler, accept, closed)
 }
 
 // NewServerTLS returns a new Redcon TLS server configured on "tcp" network net.
-func NewServerTLS(addr string,
+func NewServerTLS(ctx context.Context,
+	addr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) *TLSServer {
-	return NewServerNetworkTLS("tcp", addr, handler, accept, closed, config)
+	return NewServerNetworkTLS(ctx, "tcp", addr, handler, accept, closed, config)
 }
 
 // NewServerNetwork returns a new Redcon server. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func NewServerNetwork(
+	ctx context.Context,
 	net, laddr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
@@ -144,6 +150,7 @@ func NewServerNetwork(
 		panic("handler is nil")
 	}
 	s := &Server{
+		ctx:     ctx,
 		net:     net,
 		laddr:   laddr,
 		handler: handler,
@@ -157,6 +164,7 @@ func NewServerNetwork(
 // NewServerNetworkTLS returns a new TLS Redcon server. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func NewServerNetworkTLS(
+	ctx context.Context,
 	net, laddr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
@@ -167,6 +175,7 @@ func NewServerNetworkTLS(
 		panic("handler is nil")
 	}
 	s := Server{
+		ctx:     ctx,
 		net:     net,
 		laddr:   laddr,
 		handler: handler,
@@ -241,50 +250,58 @@ func Serve(ln net.Listener,
 }
 
 // ListenAndServe creates a new server and binds to addr configured on "tcp" network net.
-func ListenAndServe(addr string,
+func ListenAndServe(
+	ctx context.Context,
+	addr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) error {
-	return ListenAndServeNetwork("tcp", addr, handler, accept, closed)
+	return ListenAndServeNetwork(ctx, "tcp", addr, handler, accept, closed)
 }
 
 // ListenAndServeTLS creates a new TLS server and binds to addr configured on "tcp" network net.
-func ListenAndServeTLS(addr string,
+func ListenAndServeTLS(
+	ctx context.Context,
+	addr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) error {
-	return ListenAndServeNetworkTLS("tcp", addr, handler, accept, closed, config)
+	return ListenAndServeNetworkTLS(ctx, "tcp", addr, handler, accept, closed, config)
 }
 
 // ListenAndServeNetwork creates a new server and binds to addr. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func ListenAndServeNetwork(
+	ctx context.Context,
 	net, laddr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) error {
-	return NewServerNetwork(net, laddr, handler, accept, closed).ListenAndServe()
+	return NewServerNetwork(ctx, net, laddr, handler, accept, closed).ListenAndServe()
 }
 
 // ListenAndServeNetworkTLS creates a new TLS server and binds to addr. The network net must be
 // a stream-oriented network: "tcp", "tcp4", "tcp6", "unix" or "unixpacket"
 func ListenAndServeNetworkTLS(
+	ctx context.Context,
 	net, laddr string,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 	config *tls.Config,
 ) error {
-	return NewServerNetworkTLS(net, laddr, handler, accept, closed, config).ListenAndServe()
+	return NewServerNetworkTLS(ctx, net, laddr, handler, accept, closed, config).ListenAndServe()
 }
 
 // ListenServeAndSignal serves incoming connections and passes nil or error
 // when listening. signal can be nil.
 func (s *Server) ListenServeAndSignal(signal chan error) error {
+	//var lc net.ListenConfig
+	//ln, err := lc.Listen(s.ctx, s.net, s.laddr)
 	ln, err := net.Listen(s.net, s.laddr)
 	if err != nil {
 		if signal != nil {
@@ -336,6 +353,14 @@ func serve(s *Server) error {
 			s.conns = nil
 		}()
 	}()
+
+	go func() {
+		select {
+		case <-s.ctx.Done():
+			s.Close()
+		}
+	}()
+
 	for {
 		lnconn, err := s.ln.Accept()
 		if err != nil {
@@ -343,6 +368,11 @@ func serve(s *Server) error {
 			done := s.done
 			s.mu.Unlock()
 			if done {
+				select {
+				case <-s.ctx.Done():
+					return errContextDone
+				default:
+				}
 				return nil
 			}
 			if s.AcceptError != nil {
@@ -547,6 +577,7 @@ type Command struct {
 
 // Server defines a server for clients for managing client connections.
 type Server struct {
+	ctx       context.Context
 	mu        sync.Mutex
 	net       string
 	laddr     string
