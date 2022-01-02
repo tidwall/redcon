@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 
-	"github.com/nathanhack/redcon"
+	"github.com/tidwall/redcon/v2"
 )
 
 var addr = ":6380"
@@ -21,7 +22,7 @@ func main() {
 	mux.HandleFunc("get", handler.get)
 	mux.HandleFunc("del", handler.delete)
 
-	err := redcon.ListenAndServe(addr,
+	err := redcon.ListenAndServe(context.Background(), addr,
 		mux.ServeRESP,
 		func(conn redcon.Conn) bool {
 			// use this function to accept or deny the connection.

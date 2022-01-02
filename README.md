@@ -22,7 +22,7 @@ Installing
 ----------
 
 ```
-go get -u github.com/tidwall/redcon
+go get -u github.com/tidwall/redcon/v2
 ```
 
 Example
@@ -52,7 +52,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/tidwall/redcon"
+	"github.com/tidwall/redcon/v2"
 )
 
 var addr = ":6380"

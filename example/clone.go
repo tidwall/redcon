@@ -1,11 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"strings"
 	"sync"
 
-	"github.com/nathanhack/redcon"
+	"github.com/tidwall/redcon/v2"
 )
 
 var addr = ":6380"
@@ -16,7 +17,7 @@ func main() {
 	var ps redcon.PubSub
 	go log.Printf("started server at %s", addr)
 
-	err := redcon.ListenAndServe(addr,
+	err := redcon.ListenAndServe(context.Background(), addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:

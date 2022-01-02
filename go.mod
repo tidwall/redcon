@@ -1,4 +1,4 @@
-module github.com/nathanhack/redcon/v2
+module github.com/tidwall/redcon/v2
 
 go 1.15
 
