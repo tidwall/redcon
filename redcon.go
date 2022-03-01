@@ -58,8 +58,8 @@ type Conn interface {
 	// For example to write two strings:
 	//
 	//   c.WriteArray(2)
-	//   c.WriteBulk("item 1")
-	//   c.WriteBulk("item 2")
+	//   c.WriteBulkString("item 1")
+	//   c.WriteBulkString("item 2")
 	WriteArray(count int)
 	// WriteNull writes a null to the client
 	WriteNull()
@@ -591,8 +591,8 @@ func (w *Writer) WriteNull() {
 // For example to write two strings:
 //
 //   c.WriteArray(2)
-//   c.WriteBulk("item 1")
-//   c.WriteBulk("item 2")
+//   c.WriteBulkString("item 1")
+//   c.WriteBulkString("item 2")
 func (w *Writer) WriteArray(count int) {
 	w.b = AppendArray(w.b, count)
 }
