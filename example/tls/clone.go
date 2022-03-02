@@ -1,12 +1,13 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 	"strings"
 	"sync"
 
-	"github.com/tidwall/redcon"
+	"github.com/tidwall/redcon/v2"
 )
 
 const serverKey = `-----BEGIN EC PARAMETERS-----
@@ -47,7 +48,7 @@ func main() {
 	var items = make(map[string][]byte)
 
 	go log.Printf("started server at %s", addr)
-	err = redcon.ListenAndServeTLS(addr,
+	err = redcon.ListenAndServeTLS(context.Background(), addr,
 		func(conn redcon.Conn, cmd redcon.Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:

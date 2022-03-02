@@ -3,6 +3,7 @@ package redcon
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -220,7 +221,8 @@ func TestServerUnix(t *testing.T) {
 }
 
 func testServerNetwork(t *testing.T, network, laddr string) {
-	s := NewServerNetwork(network, laddr,
+	ctx := context.Background()
+	s := NewServerNetwork(ctx, network, laddr,
 		func(conn Conn, cmd Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
@@ -261,7 +263,7 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 	}
 	go func() {
 		time.Sleep(time.Second / 4)
-		if err := ListenAndServeNetwork(network, laddr, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
+		if err := ListenAndServeNetwork(ctx, network, laddr, func(conn Conn, cmd Command) {}, nil, nil); err == nil {
 			panic("expected an error, should not be able to listen on the same port")
 		}
 		time.Sleep(time.Second / 4)
@@ -560,6 +562,7 @@ func TestParse(t *testing.T) {
 func TestPubSub(t *testing.T) {
 	addr := ":12346"
 	done := make(chan bool)
+	ctx := context.Background()
 	go func() {
 		var ps PubSub
 		go func() {
@@ -593,7 +596,7 @@ func TestPubSub(t *testing.T) {
 				ps.Publish(channel, message)
 			}
 		}()
-		panic(ListenAndServe(addr, func(conn Conn, cmd Command) {
+		panic(ListenAndServe(ctx, addr, func(conn Conn, cmd Command) {
 			switch strings.ToLower(string(cmd.Args[0])) {
 			default:
 				conn.WriteError("ERR unknown command '" +
@@ -737,4 +740,22 @@ func TestPubSub(t *testing.T) {
 	<-done
 	// stop the timeout
 	final <- true
+}
+
+func TestContextDone(t *testing.T) {
+	var err error
+	ctx, cancel := context.WithCancel(context.Background())
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	s := NewServerNetwork(ctx, "tcp", ":12345", func(conn Conn, cmd Command) {}, nil, nil)
+	go func() {
+		err = s.ListenAndServe()
+		wg.Done()
+	}()
+	time.Sleep(1 * time.Second)
+	cancel()
+	wg.Wait()
+	if err != errContextDone {
+		t.Fatalf("expected %v but found %v", errContextDone, err)
+	}
 }
