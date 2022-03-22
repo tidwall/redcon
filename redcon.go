@@ -1295,8 +1295,8 @@ func (ps *PubSub) subscribe(conn Conn, pattern bool, channel string) {
 	}
 	sconn.dconn.WriteBulkString(channel)
 	var count int
-	for ient := range sconn.entries {
-		if ient.pattern == pattern {
+	for entry := range sconn.entries {
+		if entry.pattern == pattern {
 			count++
 		}
 	}
@@ -1334,8 +1334,8 @@ func (ps *PubSub) unsubscribe(conn Conn, pattern, all bool, channel string) {
 			sconn.dconn.WriteNull()
 		}
 		var count int
-		for ient := range sconn.entries {
-			if ient.pattern == pattern {
+		for entry := range sconn.entries {
+			if entry.pattern == pattern {
 				count++
 			}
 		}
@@ -1344,9 +1344,9 @@ func (ps *PubSub) unsubscribe(conn Conn, pattern, all bool, channel string) {
 	if all {
 		// unsubscribe from all (p)subscribe entries
 		var entries []*pubSubEntry
-		for ient := range sconn.entries {
-			if ient.pattern == pattern {
-				entries = append(entries, ient)
+		for entry := range sconn.entries {
+			if entry.pattern == pattern {
+				entries = append(entries, entry)
 			}
 		}
 		if len(entries) == 0 {
@@ -1358,9 +1358,9 @@ func (ps *PubSub) unsubscribe(conn Conn, pattern, all bool, channel string) {
 		}
 	} else {
 		// unsubscribe single channel from (p)subscribe.
-		for ient := range sconn.entries {
-			if ient.pattern == pattern && ient.channel == channel {
-				removeEntry(ient)
+		for entry := range sconn.entries {
+			if entry.pattern == pattern && entry.channel == channel {
+				removeEntry(entry)
 				break
 			}
 		}
