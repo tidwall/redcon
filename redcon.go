@@ -1358,14 +1358,12 @@ func (ps *PubSub) unsubscribe(conn Conn, pattern, all bool, channel string) {
 		}
 	} else {
 		// unsubscribe single channel from (p)subscribe.
-		var entry *pubSubEntry
 		for ient := range sconn.entries {
 			if ient.pattern == pattern && ient.channel == channel {
-				removeEntry(entry)
+				removeEntry(ient)
 				break
 			}
 		}
-		removeEntry(entry)
 	}
 	sconn.dconn.Flush()
 }
