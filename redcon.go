@@ -143,14 +143,12 @@ func NewServerNetwork(
 	if handler == nil {
 		panic("handler is nil")
 	}
-	s := &Server{
-		net:     net,
-		laddr:   laddr,
-		handler: handler,
-		accept:  accept,
-		closed:  closed,
-		conns:   make(map[*conn]bool),
-	}
+	s := newServer()
+	s.net = net
+	s.laddr = laddr
+	s.handler = handler
+	s.accept = accept
+	s.closed = closed
 	return s
 }
 
@@ -221,22 +219,26 @@ func (s *TLSServer) ListenAndServe() error {
 	return s.ListenServeAndSignal(nil)
 }
 
+func newServer() *Server {
+	s := &Server{
+		conns: make(map[*conn]bool),
+	}
+	return s
+}
+
 // Serve creates a new server and serves with the given net.Listener.
 func Serve(ln net.Listener,
 	handler func(conn Conn, cmd Command),
 	accept func(conn Conn) bool,
 	closed func(conn Conn, err error),
 ) error {
-	s := &Server{
-		net:     ln.Addr().Network(),
-		laddr:   ln.Addr().String(),
-		ln:      ln,
-		handler: handler,
-		accept:  accept,
-		closed:  closed,
-		conns:   make(map[*conn]bool),
-	}
-
+	s := newServer()
+	s.net = ln.Addr().Network()
+	s.laddr = ln.Addr().String()
+	s.ln = ln
+	s.handler = handler
+	s.accept = accept
+	s.closed = closed
 	return serve(s)
 }
 
@@ -343,6 +345,10 @@ func serve(s *Server) error {
 			done := s.done
 			s.mu.Unlock()
 			if done {
+				return nil
+			}
+			if errors.Is(err, net.ErrClosed) {
+				// see https://github.com/tidwall/redcon/issues/46
 				return nil
 			}
 			if s.AcceptError != nil {
