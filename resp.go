@@ -20,7 +20,6 @@ const (
 	Error   = '-'
 )
 
-// RESP ...
 type RESP struct {
 	Type  Type
 	Raw   []byte
@@ -38,6 +37,24 @@ func (r *RESP) ForEach(iter func(resp RESP) bool) {
 		}
 		data = data[n:]
 	}
+}
+
+func (r *RESP) Bytes() []byte {
+	return r.Data
+}
+
+func (r *RESP) String() string {
+	return string(r.Data)
+}
+
+func (r *RESP) Int() int64 {
+	x, _ := strconv.ParseInt(r.String(), 10, 64)
+	return x
+}
+
+func (r *RESP) Float() float64 {
+	x, _ := strconv.ParseFloat(r.String(), 10)
+	return x
 }
 
 // ReadNextRESP returns the next resp in b and returns the number of bytes the
