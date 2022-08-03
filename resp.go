@@ -28,7 +28,7 @@ type RESP struct {
 }
 
 // ForEach iterates over each Array element
-func (r *RESP) ForEach(iter func(resp RESP) bool) {
+func (r RESP) ForEach(iter func(resp RESP) bool) {
 	data := r.Data
 	for i := 0; i < r.Count; i++ {
 		n, resp := ReadNextRESP(data)
@@ -39,22 +39,48 @@ func (r *RESP) ForEach(iter func(resp RESP) bool) {
 	}
 }
 
-func (r *RESP) Bytes() []byte {
+func (r RESP) Bytes() []byte {
+	if r.Type == Array {
+		return r.Raw
+	}
 	return r.Data
 }
 
-func (r *RESP) String() string {
-	return string(r.Data)
+func (r RESP) String() string {
+	return string(r.Bytes())
 }
 
-func (r *RESP) Int() int64 {
+func (r RESP) Int() int64 {
 	x, _ := strconv.ParseInt(r.String(), 10, 64)
 	return x
 }
 
-func (r *RESP) Float() float64 {
+func (r RESP) Float() float64 {
 	x, _ := strconv.ParseFloat(r.String(), 10)
 	return x
+}
+
+// Map returns a key/value map of an Array.
+// The receiver RESP must be an Array with an equal number of values, where
+// the value of the key is followed by the key.
+// Example: key1,value1,key2,value2,key3,value3
+func (r RESP) Map() map[string]RESP {
+	if r.Type != Array {
+		return nil
+	}
+	var n int
+	var key string
+	m := make(map[string]RESP)
+	r.ForEach(func(resp RESP) bool {
+		if n&1 == 0 {
+			key = resp.String()
+		} else {
+			m[key] = resp
+		}
+		n++
+		return true
+	})
+	return m
 }
 
 // ReadNextRESP returns the next resp in b and returns the number of bytes the

@@ -250,3 +250,26 @@ func TestAppendBulkUint(t *testing.T) {
 		t.Fatalf("expected '%s', got '%s'", exp, b)
 	}
 }
+
+func TestArrayMap(t *testing.T) {
+	var dst []byte
+	dst = AppendArray(dst, 4)
+	dst = AppendBulkString(dst, "key1")
+	dst = AppendBulkString(dst, "val1")
+	dst = AppendBulkString(dst, "key2")
+	dst = AppendBulkString(dst, "val2")
+	n, resp := ReadNextRESP(dst)
+	if n != len(dst) {
+		t.Fatalf("expected '%d', got '%d'", len(dst), n)
+	}
+	m := resp.Map()
+	if len(m) != 2 {
+		t.Fatalf("expected '%d', got '%d'", 2, len(m))
+	}
+	if m["key1"].String() != "val1" {
+		t.Fatalf("expected '%s', got '%s'", "val1", m["key1"].String())
+	}
+	if m["key2"].String() != "val2" {
+		t.Fatalf("expected '%s', got '%s'", "val2", m["key2"].String())
+	}
+}
