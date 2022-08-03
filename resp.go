@@ -40,14 +40,11 @@ func (r RESP) ForEach(iter func(resp RESP) bool) {
 }
 
 func (r RESP) Bytes() []byte {
-	if r.Type == Array {
-		return r.Raw
-	}
 	return r.Data
 }
 
 func (r RESP) String() string {
-	return string(r.Bytes())
+	return string(r.Data)
 }
 
 func (r RESP) Int() int64 {
@@ -81,6 +78,30 @@ func (r RESP) Map() map[string]RESP {
 		return true
 	})
 	return m
+}
+
+func (r RESP) MapGet(key string) RESP {
+	if r.Type != Array {
+		return RESP{}
+	}
+	var val RESP
+	var n int
+	var ok bool
+	r.ForEach(func(resp RESP) bool {
+		if n&1 == 0 {
+			ok = resp.String() == key
+		} else if ok {
+			val = resp
+			return false
+		}
+		n++
+		return true
+	})
+	return val
+}
+
+func (r RESP) Exists() bool {
+	return r.Type != 0
 }
 
 // ReadNextRESP returns the next resp in b and returns the number of bytes the
