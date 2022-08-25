@@ -544,6 +544,10 @@ type SimpleString string
 // from an *Any call.
 type SimpleInt int
 
+// SimpleError is for representing an error without adding the "ERR" prefix
+// from an *Any call.
+type SimpleError error
+
 // Marshaler is the interface implemented by types that
 // can marshal themselves into a Redis response type from an *Any call.
 // The return value is not check for validity.
@@ -570,6 +574,8 @@ func AppendAny(b []byte, v interface{}) []byte {
 		b = AppendString(b, string(v))
 	case SimpleInt:
 		b = AppendInt(b, int64(v))
+	case SimpleError:
+		b = AppendError(b, v.Error())
 	case nil:
 		b = AppendNull(b)
 	case error:
