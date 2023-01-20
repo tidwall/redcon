@@ -235,12 +235,14 @@ func Serve(ln net.Listener,
 	closed func(conn Conn, err error),
 ) error {
 	s := newServer()
+	s.mu.Lock()
 	s.net = ln.Addr().Network()
 	s.laddr = ln.Addr().String()
 	s.ln = ln
 	s.handler = handler
 	s.accept = accept
 	s.closed = closed
+	s.mu.Unlock()
 	return serve(s)
 }
 
@@ -296,7 +298,9 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 		}
 		return err
 	}
+	s.mu.Lock()
 	s.ln = ln
+	s.mu.Unlock()
 	if signal != nil {
 		signal <- nil
 	}
@@ -305,9 +309,11 @@ func (s *Server) ListenServeAndSignal(signal chan error) error {
 
 // Serve serves incoming connections with the given net.Listener.
 func (s *Server) Serve(ln net.Listener) error {
+	s.mu.Lock()
 	s.ln = ln
 	s.net = ln.Addr().Network()
 	s.laddr = ln.Addr().String()
+	s.mu.Unlock()
 	return serve(s)
 }
 
@@ -321,7 +327,9 @@ func (s *TLSServer) ListenServeAndSignal(signal chan error) error {
 		}
 		return err
 	}
+	s.mu.Lock()
 	s.ln = ln
+	s.mu.Unlock()
 	if signal != nil {
 		signal <- nil
 	}
