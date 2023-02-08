@@ -3,6 +3,7 @@ package redcon
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -776,8 +777,91 @@ func parseInt(b []byte) (int, bool) {
 	return n, true
 }
 
+var cmdPool = sync.Pool{
+	New: func() any {
+		return &ReusableSlice[Command]{}
+	},
+}
+
+type ReusableSlice[T any] struct {
+	buf []T
+}
+
+func (c *ReusableSlice[T]) Append(cmd T) {
+	m, ok := c.tryGrowByReslice(1)
+	if !ok {
+		m = c.grow(1)
+	}
+	c.buf[m] = cmd
+}
+
+const smallBufferSize = 64
+const maxInt = int(^uint(0) >> 1)
+
+func (c *ReusableSlice[T]) tryGrowByReslice(n int) (int, bool) {
+	if l := len(c.buf); n <= cap(c.buf)-l {
+		c.buf = c.buf[:l+n]
+		return l, true
+	}
+	return 0, false
+}
+
+func (c *ReusableSlice[T]) grow(n int) int {
+	m := c.Len()
+	// If buffer is empty, reset to recover space.
+	if m == 0 {
+		c.Reset()
+	}
+	// Try to grow by means of a reslice.
+	if i, ok := c.tryGrowByReslice(n); ok {
+		return i
+	}
+	if c.buf == nil && n <= smallBufferSize {
+		c.buf = make([]T, n, smallBufferSize)
+		return 0
+	}
+	cs := cap(c.buf)
+	if cs > maxInt-cs-n {
+		panic(bytes.ErrTooLarge)
+	} else {
+		// Add c.off to account for c.buf[:c.off] being sliced off the front.
+		c.buf = growSlice(c.buf, n)
+	}
+	// Restore len(c.buf).
+	c.buf = c.buf[:m+n]
+	return m
+}
+
+func growSlice[T any](b []T, n int) []T {
+	defer func() {
+		if recover() != nil {
+			panic(bytes.ErrTooLarge)
+		}
+	}()
+
+	c := len(b) + n // ensure enough space for n elements
+	if c < 2*cap(b) {
+		// The growth rate has historically always been 2x. In the future,
+		// we could rely purely on append to determine the growth rate.
+		c = 2 * cap(b)
+	}
+	b2 := append(b, make([]T, c)...)
+	return b2[:len(b)]
+}
+
+func (c *ReusableSlice[T]) Len() int {
+	return len(c.buf)
+}
+
+func (c *ReusableSlice[T]) Reset() {
+	c.buf = c.buf[:0]
+}
+
 func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
-	var cmds []Command
+	cmds := cmdPool.Get().(*ReusableSlice[Command])
+	cmds.Reset()
+	defer cmdPool.Put(cmds)
+
 	b := rd.buf[rd.start:rd.end]
 	if rd.end-rd.start == 0 && len(rd.buf) > 4096 {
 		rd.buf = rd.buf[:4096]
@@ -869,7 +953,7 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 							cmd.Args[i] = append([]byte(nil), cmd.Args[i]...)
 						}
 						cmd.Raw = wr.b
-						cmds = append(cmds, cmd)
+						cmds.Append(cmd)
 					}
 					b = b[i+1:]
 					if len(b) > 0 {
@@ -943,7 +1027,7 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 						for h := 0; h < len(marks); h += 2 {
 							cmd.Args[h/2] = cmd.Raw[marks[h]:marks[h+1]]
 						}
-						cmds = append(cmds, cmd)
+						cmds.Append(cmd)
 						b = b[i+1:]
 						if len(b) > 0 {
 							goto next
@@ -960,8 +1044,10 @@ func (rd *Reader) readCommands(leftover *int) ([]Command, error) {
 	if leftover != nil {
 		*leftover = rd.end - rd.start
 	}
-	if len(cmds) > 0 {
-		return cmds, nil
+	if cmds.Len() > 0 {
+		rcmds := make([]Command, cmds.Len())
+		copy(rcmds, cmds.buf)
+		return rcmds, nil
 	}
 	if rd.rd == nil {
 		return nil, errIncompleteCommand
@@ -996,7 +1082,7 @@ func (rd *Reader) ReadCommands() ([]Command, error) {
 		}
 		cmds, err := rd.readCommands(nil)
 		if err != nil {
-			return []Command{}, err
+			return nil, err
 		}
 		rd.cmds = cmds
 	}
