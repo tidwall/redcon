@@ -68,6 +68,28 @@ func (h *Handler) get(conn redcon.Conn, cmd redcon.Command) {
 	}
 }
 
+func (h *Handler) setnx(conn redcon.Conn, cmd redcon.Command) {
+	if len(cmd.Args) != 3 {
+		conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
+		return
+	}
+
+	h.itemsMux.RLock()
+	_, ok := h.items[string(cmd.Args[1])]
+	h.itemsMux.RUnlock()
+
+	if ok {
+		conn.WriteInt(0)
+		return
+	}
+
+	h.itemsMux.Lock()
+	h.items[string(cmd.Args[1])] = cmd.Args[2]
+	h.itemsMux.Unlock()
+
+	conn.WriteInt(1)
+}
+
 func (h *Handler) delete(conn redcon.Conn, cmd redcon.Command) {
 	if len(cmd.Args) != 2 {
 		conn.WriteError("ERR wrong number of arguments for '" + string(cmd.Args[0]) + "' command")
