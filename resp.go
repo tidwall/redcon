@@ -556,18 +556,19 @@ type Marshaler interface {
 }
 
 // AppendAny appends any type to valid Redis type.
-//   nil             -> null
-//   error           -> error (adds "ERR " when first word is not uppercase)
-//   string          -> bulk-string
-//   numbers         -> bulk-string
-//   []byte          -> bulk-string
-//   bool            -> bulk-string ("0" or "1")
-//   slice           -> array
-//   map             -> array with key/value pairs
-//   SimpleString    -> string
-//   SimpleInt       -> integer
-//   Marshaler       -> raw bytes
-//   everything-else -> bulk-string representation using fmt.Sprint()
+//
+//	nil             -> null
+//	error           -> error (adds "ERR " when first word is not uppercase)
+//	string          -> bulk-string
+//	numbers         -> bulk-string
+//	[]byte          -> bulk-string
+//	bool            -> bulk-string ("0" or "1")
+//	slice           -> array
+//	map             -> array with key/value pairs
+//	SimpleString    -> string
+//	SimpleInt       -> integer
+//	Marshaler       -> raw bytes
+//	everything-else -> bulk-string representation using fmt.Sprint()
 func AppendAny(b []byte, v interface{}) []byte {
 	switch v := v.(type) {
 	case SimpleString:
@@ -583,7 +584,11 @@ func AppendAny(b []byte, v interface{}) []byte {
 	case string:
 		b = AppendBulkString(b, v)
 	case []byte:
-		b = AppendBulk(b, v)
+		if v == nil {
+			b = AppendNull(b)
+		} else {
+			b = AppendBulk(b, v)
+		}
 	case bool:
 		if v {
 			b = AppendBulkString(b, "1")
