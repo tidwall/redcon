@@ -18,7 +18,7 @@ Features
 - Compatible pub/sub support
 - Multithreaded
 
-*This library is also avaliable for [Rust](https://github.com/tidwall/redcon.rs) and [C](https://github.com/tidwall/redcon.c).*
+*This library is also available for [Rust](https://github.com/tidwall/redcon.rs) and [C](https://github.com/tidwall/redcon.c).*
 
 Installing
 ----------
