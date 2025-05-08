@@ -199,7 +199,7 @@ func TestNextCommand(t *testing.T) {
 				}
 				fargs = append(fargs, args)
 			}
-			rbuf = append(rbuf[:0], data...)
+			rbuf = append([]byte{}, data...)
 		}
 		// compare final args to original
 		if len(plargs) != len(fargs) {
@@ -210,7 +210,7 @@ func TestNextCommand(t *testing.T) {
 				t.Fatalf("not equal size for item %v: %v != %v", i, len(plargs[i]), len(fargs[i]))
 			}
 			for j := 0; j < len(plargs[i]); j++ {
-				if !bytes.Equal(plargs[i][j], plargs[i][j]) {
+				if !bytes.Equal(plargs[i][j], fargs[i][j]) {
 					t.Fatalf("not equal for item %v:%v: %v != %v", i, j, len(plargs[i][j]), len(fargs[i][j]))
 				}
 			}
