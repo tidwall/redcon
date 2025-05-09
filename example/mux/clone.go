@@ -19,6 +19,7 @@ func main() {
 	mux.HandleFunc("quit", handler.quit)
 	mux.HandleFunc("set", handler.set)
 	mux.HandleFunc("get", handler.get)
+	mux.HandleFunc("setnx", handler.setnx)
 	mux.HandleFunc("del", handler.delete)
 
 	err := redcon.ListenAndServe(addr,
