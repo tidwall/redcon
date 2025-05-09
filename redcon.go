@@ -113,6 +113,8 @@ type Conn interface {
 	PeekPipeline() []Command
 	// NetConn returns the base net.Conn connection
 	NetConn() net.Conn
+	// WriteBulkFrom write bulk from io.Reader, size n
+	WriteBulkFrom(n int64, rb io.Reader)
 }
 
 // NewServer returns a new Redcon server configured on "tcp" network net.
@@ -494,6 +496,9 @@ func (c *conn) PeekPipeline() []Command {
 func (c *conn) NetConn() net.Conn {
 	return c.conn
 }
+func (c *conn) WriteBulkFrom(n int64, rb io.Reader) {
+	c.wr.WriteBulkFrom(n, rb)
+}
 
 // BaseWriter returns the underlying connection writer, if any
 func BaseWriter(c Conn) *Writer {
@@ -589,13 +594,27 @@ type Writer struct {
 	w   io.Writer
 	b   []byte
 	err error
+
+	// buff use io buffer write to w(io.Writer)
+	// for io.Copy r(io.Reader) to w(io.Writer)
+	buff *bufio.Writer
 }
 
 // NewWriter creates a new RESP writer.
 func NewWriter(wr io.Writer) *Writer {
 	return &Writer{
-		w: wr,
+		w:    wr,
+		buff: bufio.NewWriter(wr),
 	}
+}
+
+func (w *Writer) WriteBulkFrom(n int64, r io.Reader) {
+	if w != nil && w.err != nil {
+		return
+	}
+	w.buff.Write(appendPrefix(w.b, '$', n))
+	io.Copy(w.buff, r)
+	w.buff.Write([]byte{'\r', '\n'})
 }
 
 // WriteNull writes a null to the client
@@ -656,6 +675,10 @@ func (w *Writer) SetBuffer(raw []byte) {
 
 // Flush writes all unflushed Write* calls to the underlying writer.
 func (w *Writer) Flush() error {
+	if w.buff != nil {
+		w.buff.Flush()
+	}
+
 	if w.err != nil {
 		return w.err
 	}

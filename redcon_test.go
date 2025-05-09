@@ -365,6 +365,35 @@ func testServerNetwork(t *testing.T, network, laddr string) {
 	<-done
 }
 
+func TestConnImpl(t *testing.T) {
+	var i interface{} = &conn{}
+	if _, ok := i.(Conn); !ok {
+		t.Fatalf("conn does not implement Conn interface")
+	}
+}
+
+func TestWriteBulkFrom(t *testing.T) {
+	wbuf := &bytes.Buffer{}
+	wr := NewWriter(wbuf)
+	rbuf := &bytes.Buffer{}
+	testStr := "hello world"
+	rbuf.WriteString(testStr)
+	wr.WriteBulkFrom(int64(len(testStr)), rbuf)
+	wr.Flush()
+	if wbuf.String() != fmt.Sprintf("$%d\r\n%s\r\n", len(testStr), testStr) {
+		t.Fatal("failed")
+	}
+	wbuf.Reset()
+	testStr1 := "hi world"
+	rbuf.WriteString(testStr1)
+	wr.WriteBulkFrom(int64(len(testStr1)), rbuf)
+	wr.Flush()
+	if wbuf.String() != fmt.Sprintf("$%d\r\n%s\r\n", len(testStr1), testStr1) {
+		t.Fatal("failed")
+	}
+	wbuf.Reset()
+}
+
 func TestWriter(t *testing.T) {
 	buf := &bytes.Buffer{}
 	wr := NewWriter(buf)
